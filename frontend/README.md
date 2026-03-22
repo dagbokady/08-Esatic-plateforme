@@ -1,16 +1,48 @@
-# React + Vite
+# Ça, personne ne retient par cœur :
+```js
+token = jwt.encode(contenu, SECRET_KEY, algorithm=ALGORITHM)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+```
 
-Currently, two official plugins are available:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## React Compiler
+Ce code dépend entièrement de la bibliothèque `python-jose`. Si demain tu utilises une autre bibliothèque JWT, la syntaxe change complètement. Ce serait stupide de mémoriser quelque chose qui change selon l'outil.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Tout développeur senior va sur la doc de `python-jose` pour écrire ces lignes. C'est normal, c'est attendu.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## La règle simple à retenir
+
+CONCEPT         → retenir
+SYNTAXE PROPRE  → retenir  (if, for, def, class...)
+BIBLIOTHÈQUE    → doc officielle
+
+Concrètement pour ton projet :
+
+| Code | Retenir ? |
+|---|---|
+| `if`, `for`, `def`, `return` | ✅ Oui — c'est Python de base |
+| `datetime.utcnow() + timedelta(...)` | ✅ Oui — logique de dates, standard Python |
+| `jwt.encode(...)` | ❌ Non — syntaxe de `python-jose`, lis la doc |
+| `create_engine(DATABASE_URL)` | ❌ Non — syntaxe de SQLAlchemy, lis la doc |
+| `db.query(User).filter(...).first()` | ⚠️ À force de l'écrire tu vas le retenir naturellement |
+| La logique des tokens JWT | ✅ Oui — concept universel |
+| La logique de connexion DB | ✅ Oui — concept universel |
+---
+
+## Comment les vrais développeurs travaillent
+
+Un développeur senior sur ce même fichier ferait exactement ça :
+```
+1. Il sait qu'il a besoin de JWT
+   ↓
+2. Il tape "python-jose documentation" dans Google
+   ↓
+3. Il lit les exemples 2 minutes
+   ↓
+4. Il écrit son code en adaptant l'exemple à son besoin
+   ↓
+5. La prochaine fois il s'en souvient à 80%
+   et vérifie juste un détail de syntaxe
