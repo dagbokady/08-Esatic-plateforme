@@ -1,0 +1,27 @@
+# Environnement
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node / React
+node_modules/
+dist/
+build/
+.next/
+
+# Éditeurs
+.vscode/
+.idea/
+*.DS_Store
+
+# Logs
+*.log
+logs/
