@@ -1,48 +1,33 @@
-# Ça, personne ne retient par cœur :
-```js
-token = jwt.encode(contenu, SECRET_KEY, algorithm=ALGORITHM)
+---
 
-payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-```
+## La table de correspondance commits → version
 
-
-
-Ce code dépend entièrement de la bibliothèque `python-jose`. Si demain tu utilises une autre bibliothèque JWT, la syntaxe change complètement. Ce serait stupide de mémoriser quelque chose qui change selon l'outil.
-
-Tout développeur senior va sur la doc de `python-jose` pour écrire ces lignes. C'est normal, c'est attendu.
+| Message de commit | Type | Résultat |
+|---|---|---|
+| `fix: bouton vote cassé` | Correction | `1.0.0 → 1.0.1` |
+| `feat: ajout recherche ECUE` | Nouvelle feature | `1.0.1 → 1.1.0` |
+| `feat!: refonte auth` | Breaking change | `1.1.0 → 2.0.0` |
+| `chore: mise à jour deps` | Maintenance | Aucun changement |
+| `docs: mise à jour README` | Documentation | Aucun changement |
 
 ---
 
-## La règle simple à retenir
+## Quand est-ce que ça se déclenche ?
 
-CONCEPT         → retenir
-SYNTAXE PROPRE  → retenir  (if, for, def, class...)
-BIBLIOTHÈQUE    → doc officielle
-
-Concrètement pour ton projet :
-
-| Code | Retenir ? |
-|---|---|
-| `if`, `for`, `def`, `return` | ✅ Oui — c'est Python de base |
-| `datetime.utcnow() + timedelta(...)` | ✅ Oui — logique de dates, standard Python |
-| `jwt.encode(...)` | ❌ Non — syntaxe de `python-jose`, lis la doc |
-| `create_engine(DATABASE_URL)` | ❌ Non — syntaxe de SQLAlchemy, lis la doc |
-| `db.query(User).filter(...).first()` | ⚠️ À force de l'écrire tu vas le retenir naturellement |
-| La logique des tokens JWT | ✅ Oui — concept universel |
-| La logique de connexion DB | ✅ Oui — concept universel |
----
-
-## Comment les vrais développeurs travaillent
-
-Un développeur senior sur ce même fichier ferait exactement ça :
+**Automatiquement** — quand tu fais un push sur `main`. C'est la CI/CD (Phase 5) qui lance semantic-release. En gros :
 ```
-1. Il sait qu'il a besoin de JWT
-   ↓
-2. Il tape "python-jose documentation" dans Google
-   ↓
-3. Il lit les exemples 2 minutes
-   ↓
-4. Il écrit son code en adaptant l'exemple à son besoin
-   ↓
-5. La prochaine fois il s'en souvient à 80%
-   et vérifie juste un détail de syntaxe
+Push sur main
+      ↓
+GitHub Actions se déclenche
+      ↓
+Lance semantic-release
+      ↓
+Analyse les commits depuis la dernière version
+      ↓
+Incrémente la version si nécessaire
+      ↓
+Crée un tag Git (v1.0.1)
+      ↓
+Génère le CHANGELOG automatiquement
+      ↓
+Met à jour package.json

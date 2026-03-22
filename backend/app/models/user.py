@@ -29,4 +29,4 @@ class User(Base):
     memberships    = relationship("ClassMembership", back_populates="user")
     uploaded_files = relationship("File", back_populates="uploader")
     votes          = relationship("Vote", back_populates="voter")
-    invitations    = relationship("Invitation", back_populates="created_by")
+    invitations = relationship("Invitation", back_populates="created_by_user")

@@ -18,4 +18,4 @@ class Invitation(Base):
     is_active  = Column(Boolean, default=True, nullable=False)
 
     class_      = relationship("Class")
-    created_by_ = relationship("User", back_populates="invitations")
+    created_by_user = relationship("User", back_populates="invitations")
