@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example        ← celui-là on le garde, c'est un modèle vide
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node / React
+node_modules/
+dist/
+build/
