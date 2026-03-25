@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── VÉRIFICATION BACKEND ──────────────────────────
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installer les dépendances
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Vérifier que le backend démarre
+        working-directory: backend
+        run: |
+          python -c "from app.main import app; print('Backend OK')"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+          SECRET_KEY: test-secret-key
+          ALGORITHM: HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+          ENVIRONMENT: development
+
+  # ── VÉRIFICATION FRONTEND ─────────────────────────
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Installer les dépendances
+        working-directory: frontend
+        run: npm install
+
+      - name: Vérifier le build
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://esaticshare-backend.onrender.com

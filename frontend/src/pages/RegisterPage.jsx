@@ -98,7 +98,7 @@ export default function RegisterPage() {
 }
 
 const styles = {
-  page      : { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9' },
+  page      : { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F1F5F9', width: '100%' },
   card      : { background: '#fff', borderRadius: '16px', padding: '40px', width: '100%', maxWidth: '420px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' },
   logo      : { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' },
   logoIcon  : { background: '#2563EB', color: '#fff', borderRadius: '8px', padding: '6px 10px', fontWeight: '700', fontSize: '14px' },
