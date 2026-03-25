@@ -20,7 +20,8 @@ app = FastAPI(
 if ENVIRONMENT == "development":
     origins = ["http://localhost:5173"]
 else:
-    origins = ["https://esaticshare.esatic.ci"]
+    origins = [os.getenv("FRONTEND_URL", "https://esaticshare.vercel.app")]
+
 
 app.add_middleware(
     CORSMiddleware,
