@@ -1,4 +1,4 @@
-# backend/app/utils/seed.py
+
 from app.database import SessionLocal
 from app.models.academic import Level, Filiere, Class
 import uuid
