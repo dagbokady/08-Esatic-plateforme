@@ -21,7 +21,7 @@ app = FastAPI(
 if ENVIRONMENT == "development":
     origins = ["http://localhost:5173"]
 else:
-    origins = ["*"]
+    origins = [os.getenv("FRONTEND_URL", "08-esatic-plateforme-erxnkx4y1-phanuel19s-projects.vercel.app")]
 
 
 app.add_middleware(
