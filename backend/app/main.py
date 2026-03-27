@@ -6,8 +6,6 @@ from dotenv import load_dotenv
 import os
 from alembic.config import Config
 from alembic import command
-from app.database import engine
-from app.models import *
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -23,7 +21,7 @@ app = FastAPI(
 if ENVIRONMENT == "development":
     origins = ["http://localhost:5173"]
 else:
-    origins = [os.getenv("FRONTEND_URL", "https://esaticshare.vercel.app")]
+    origins = [os.getenv("FRONTEND_URL", "https://08-esatic-plateforme.vercel.app")]
 
 
 app.add_middleware(
