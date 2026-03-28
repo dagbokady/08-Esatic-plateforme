@@ -18,15 +18,14 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────
-if ENVIRONMENT == "development":
-    origins = ["http://localhost:5173"]
-else:
-    origins = [os.getenv("FRONTEND_URL", "https://esaticshare-frontend.vercel.app")]
-
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173",
+        FRONTEND_URL,
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
