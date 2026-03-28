@@ -1,39 +1,37 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.routers import auth, classes, files
 import os
 
 load_dotenv()
 
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+ENVIRONMENT  = os.getenv("ENVIRONMENT", "development")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 app = FastAPI(
     title="EsaticShare API",
     description="Partage de fichiers scolaires — ESATIC",
     version="0.1.0",
-    debug=(ENVIRONMENT == "development")
 )
 
-# ── CORS MANUEL ───────────────────────────────────────
-@app.middleware("http")
-async def add_cors_headers(request: Request, call_next):
-    # Gérer les erreurs sans perdre les headers CORS
-    try:
-        response = await call_next(request)
-    except Exception as e:
-        response = JSONResponse(
-            content={"detail": "Erreur interne"},
-            status_code=500
-        )
+# ── CORS ──────────────────────────────────────────────
+# DOIT être ajouté avant tout le reste
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "https://esaticshare-frontend.vercel.app",
+        "https://08-esatic-plateforme.vercel.app",
+        FRONTEND_URL,
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
-    origin = request.headers.get("origin", "*")
-    response.headers["Access-Control-Allow-Origin"]      = origin
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"]     = "*"
-    return response
 # ── MIGRATIONS AU DÉMARRAGE ───────────────────────────
 from alembic.config import Config
 from alembic import command
