@@ -19,26 +19,21 @@ app = FastAPI(
 # ── CORS MANUEL ───────────────────────────────────────
 @app.middleware("http")
 async def add_cors_headers(request: Request, call_next):
-    response = await call_next(request)
+    # Gérer les erreurs sans perdre les headers CORS
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        response = JSONResponse(
+            content={"detail": "Erreur interne"},
+            status_code=500
+        )
+
     origin = request.headers.get("origin", "*")
     response.headers["Access-Control-Allow-Origin"]      = origin
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
     response.headers["Access-Control-Allow-Headers"]     = "*"
     return response
-
-@app.options("/{rest_of_path:path}")
-async def preflight(rest_of_path: str):
-    return JSONResponse(
-        content={},
-        headers={
-            "Access-Control-Allow-Origin"     : "*",
-            "Access-Control-Allow-Methods"    : "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers"    : "*",
-            "Access-Control-Allow-Credentials": "true",
-        }
-    )
-
 # ── MIGRATIONS AU DÉMARRAGE ───────────────────────────
 from alembic.config import Config
 from alembic import command
