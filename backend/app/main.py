@@ -1,14 +1,13 @@
-
-from app.routers import auth, classes, files
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
+from app.routers import auth, classes, files
 import os
-from alembic.config import Config
-from alembic import command
+
 load_dotenv()
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 app = FastAPI(
     title="EsaticShare API",
@@ -17,24 +16,32 @@ app = FastAPI(
     debug=(ENVIRONMENT == "development")
 )
 
-# ── CORS ──────────────────────────────────────────────
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+# ── CORS MANUEL ───────────────────────────────────────
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get("origin", "*")
+    response.headers["Access-Control-Allow-Origin"]      = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"]     = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"]     = "*"
+    return response
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        FRONTEND_URL,
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.include_router(auth.router)
-app.include_router(classes.router)
-app.include_router(files.router)
+@app.options("/{rest_of_path:path}")
+async def preflight(rest_of_path: str):
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin"     : "*",
+            "Access-Control-Allow-Methods"    : "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers"    : "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
-
+# ── MIGRATIONS AU DÉMARRAGE ───────────────────────────
+from alembic.config import Config
+from alembic import command
 
 def run_migrations():
     try:
@@ -51,17 +58,22 @@ def run_seed():
     except Exception as e:
         print(f"⚠️ Seed : {e}")
 
-
 run_migrations()
 run_seed()
+
+# ── ROUTERS ───────────────────────────────────────────
+app.include_router(auth.router)
+app.include_router(classes.router)
+app.include_router(files.router)
+
 # ── ROUTES DE BASE ────────────────────────────────────
 @app.get("/")
 def root():
     return {
-        "app": "EsaticShare",
-        "version": "0.1.0",
+        "app"        : "EsaticShare",
+        "version"    : "0.1.0",
         "environment": ENVIRONMENT,
-        "status": "running"
+        "status"     : "running"
     }
 
 @app.get("/health")
