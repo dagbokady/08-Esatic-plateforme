@@ -100,10 +100,8 @@ export default function DashboardPage() {
         </div>
         <div style={s.navRight}>
           <div style={s.navUser}>
-            <div style={s.avatar}>
-              {user?.full_name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
-            </div>
-            <span style={s.navUserName}>{user?.full_name}</span>
+
+
           </div>
           <button style={s.btnPrimary} onClick={() => navigate('/upload')}>
             + Envoyer
@@ -119,6 +117,11 @@ export default function DashboardPage() {
           <button style={s.btnGhost} onClick={() => { deconnexion(); navigate('/login'); }}>
             Déconnexion
           </button>
+          <span style={s.navUserName}>{user?.full_name}</span>
+          <div style={s.avatar}>
+            {user?.full_name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+          </div>
+
         </div>
       </nav>
 
@@ -254,6 +257,7 @@ export default function DashboardPage() {
                         {isVoting ? '...' : '👍 Voter'}
                       </button>
                     )}
+
                     {estMien && (
                       <button style={s.btnDel} onClick={() => handleSupprimer(f.id)}>
                         🗑
@@ -262,7 +266,18 @@ export default function DashboardPage() {
                     {estMien && (
                       <span style={s.ownerTag}>Mon fichier</span>
                     )}
+                    {/* Dans la section cardActions, ajoute : */}
+                    {f.status === 'approved' && f.storage_url && (
+                    <a  href={f.storage_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={s.btnDownload}
+                      >
+                      ⬇ Télécharger
+                      </a>
+                      )}
                   </div>
+
                 </div>
               );
             })}
@@ -293,7 +308,7 @@ const s = {
   btnPrimary: { padding: '7px 16px', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-600))', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.25)' },
   btnGhost  : { padding: '7px 12px', background: 'transparent', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '12px', cursor: 'pointer', color: 'var(--gray-500)', fontFamily: 'var(--font-display)' },
   btnDelegate : { padding: '7px 14px', background: 'var(--amber-50)', color: 'var(--amber-600)', border: '1px solid #FDE68A', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer' },
-
+  btnDownload : { padding: '5px 10px', background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' },
   /* BODY */
   body      : { maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },
 

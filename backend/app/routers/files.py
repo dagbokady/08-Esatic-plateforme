@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile
+from app.services.storage_service import upload_fichier
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile,  Form
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.file import File, FileStatus, FileType, ECUE
@@ -13,6 +14,7 @@ from app.services.permission_service import (
     compter_votes
 )
 import uuid
+
 
 router = APIRouter(prefix="/files", tags=["Fichiers"])
 
@@ -57,22 +59,66 @@ def fichiers_classe(
 
 
 # ── UPLOADER UN FICHIER ───────────────────────────────
+
+TYPES_AUTORISES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/zip",
+    "image/png",
+    "image/jpeg",
+}
+
+TAILLE_MAX = 50 * 1024 * 1024  # 50 Mo
+
+
+# ── UPLOADER UN FICHIER ───────────────────────────────
 @router.post("/upload")
 def uploader_fichier(
-    class_id    : str,
-    title       : str,
-    file_type   : FileType,
-    ecue_id     : str        = None,
-    current_user: User       = Depends(get_current_user),
-    db          : Session    = Depends(get_db)
+    class_id    : str           = Form(...),
+    title       : str           = Form(...),
+    file_type   : FileType      = Form(...),
+    ecue_id     : str           = Form(None),
+    fichier     : UploadFile     = FastAPIFile(...),
+    current_user: User          = Depends(get_current_user),
+    db          : Session       = Depends(get_db)
 ):
-
+    # ── Vérification permissions ──
     if not peut_uploader_vers(db, current_user, class_id):
         raise HTTPException(
             status_code = 403,
             detail      = "Tu ne peux pas uploader vers une classe de niveau supérieur"
         )
 
+    # ── Vérification type de fichier ──
+    if fichier.content_type not in TYPES_AUTORISES:
+        raise HTTPException(
+            status_code = 400,
+            detail      = "Type de fichier non autorisé. PDF, Word, ZIP, images uniquement."
+        )
+
+    # ── Vérification taille ──
+    contenu = fichier.file.read()
+    if len(contenu) > TAILLE_MAX:
+        raise HTTPException(
+            status_code = 400,
+            detail      = "Fichier trop lourd. Maximum 50 Mo."
+        )
+
+    # ── Upload vers Supabase ──
+    try:
+        storage_url = upload_fichier(
+            contenu       = contenu,
+            nom_original  = fichier.filename,
+            content_type  = fichier.content_type
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code = 500,
+            detail      = f"Erreur lors de l'upload : {str(e)}"
+        )
+
+    # ── Créer en base ──
     nouveau_fichier = File(
         id          = uuid.uuid4(),
         title       = title,
@@ -81,7 +127,7 @@ def uploader_fichier(
         uploader_id = current_user.id,
         class_id    = class_id,
         ecue_id     = ecue_id if ecue_id else None,
-        storage_url = None   #
+        storage_url = storage_url
     )
 
     db.add(nouveau_fichier)
@@ -89,13 +135,12 @@ def uploader_fichier(
     db.refresh(nouveau_fichier)
 
     return {
-        "id"    : str(nouveau_fichier.id),
-        "title" : nouveau_fichier.title,
-        "status": nouveau_fichier.status,
-        "message": "Fichier soumis — en attente de validation par 70% des membres"
+        "id"         : str(nouveau_fichier.id),
+        "title"      : nouveau_fichier.title,
+        "status"     : nouveau_fichier.status,
+        "storage_url": storage_url,
+        "message"    : "Fichier uploadé — en attente de validation par 70% des membres"
     }
-
-
 # ── VOTER POUR UN FICHIER ─────────────────────────────
 @router.post("/{file_id}/vote")
 def voter(

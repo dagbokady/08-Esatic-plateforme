@@ -1,5 +1,5 @@
 // src/pages/UploadPage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getClasses } from '../services/classService';
 import { uploaderFichier } from '../services/fileService';
@@ -11,13 +11,20 @@ const FILE_TYPES = [
   { value: 'td_tp',   label: 'TD / TP',         icon: '📁' },
 ];
 
+const TAILLE_MAX = 50 * 1024 * 1024;
+
 export default function UploadPage() {
-  const navigate = useNavigate();
-  const [classes,  setClasses]  = useState([]);
-  const [form,     setForm]     = useState({ title: '', file_type: 'cours', class_id: '' });
-  const [erreur,   setErreur]   = useState('');
-  const [succes,   setSucces]   = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const navigate  = useNavigate();
+  const fileRef   = useRef();
+
+  const [classes,   setClasses]   = useState([]);
+  const [form,      setForm]      = useState({ title: '', file_type: 'cours', class_id: '', ecue_id: '' });
+  const [fichier,   setFichier]   = useState(null);
+  const [drag,      setDrag]      = useState(false);
+  const [erreur,    setErreur]    = useState('');
+  const [succes,    setSucces]    = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [progress,  setProgress]  = useState(0);
 
   useEffect(() => {
     getClasses().then((res) => setClasses(res.data));
@@ -25,28 +32,78 @@ export default function UploadPage() {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const validerFichier = (f) => {
+    if (!f) return 'Aucun fichier sélectionné';
+    if (f.size > TAILLE_MAX) return 'Fichier trop lourd (max 50 Mo)';
+    const typesOk = ['application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/zip', 'image/png', 'image/jpeg'];
+    if (!typesOk.includes(f.type)) return 'Type non autorisé (PDF, Word, ZIP, images)';
+    return null;
+  };
+
+  const handleFichier = (f) => {
+    const errMsg = validerFichier(f);
+    if (errMsg) { setErreur(errMsg); return; }
+    setErreur('');
+    setFichier(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files[0];
+    if (f) handleFichier(f);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErreur('');
+
+    if (!fichier) { setErreur('Sélectionne un fichier'); return; }
+    if (!form.class_id) { setErreur('Sélectionne une classe cible'); return; }
+
     setLoading(true);
+    setProgress(0);
+
     try {
-      await uploaderFichier(form);
-      setSucces('Fichier soumis avec succès !');
+      // Construire le FormData
+      const fd = new FormData();
+      fd.append('fichier',   fichier);
+      fd.append('title',     form.title || fichier.name);
+      fd.append('file_type', form.file_type);
+      fd.append('class_id',  form.class_id);
+      if (form.ecue_id) fd.append('ecue_id', form.ecue_id);
+
+      // Simuler la progression
+      const interval = setInterval(() => {
+        setProgress((p) => Math.min(p + 10, 85));
+      }, 200);
+
+      await uploaderFichier(fd);
+
+      clearInterval(interval);
+      setProgress(100);
+      setSucces('Fichier uploadé et soumis au vote !');
       setTimeout(() => navigate('/dashboard'), 1800);
+
     } catch (err) {
-      setErreur(err.response?.data?.detail || "Erreur lors de l'envoi");
+      setErreur(err.response?.data?.detail || "Erreur lors de l'upload");
+      setProgress(0);
     } finally {
       setLoading(false);
     }
   };
 
   const classeSelectionnee = classes.find(c => c.id === form.class_id);
+  const formatSize = (bytes) => bytes > 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} Mo`
+    : `${(bytes / 1024).toFixed(0)} Ko`;
 
   return (
     <div style={s.root}>
       <div style={s.bgBlob} />
 
-      {/* HEADER */}
       <div style={s.topBar}>
         <button style={s.retour} onClick={() => navigate('/dashboard')}>
           ← Retour au dashboard
@@ -54,32 +111,72 @@ export default function UploadPage() {
       </div>
 
       <div style={s.wrapper}>
-        {/* FORMULAIRE */}
         <div style={s.formSection}>
           <div style={s.formHeader}>
             <h1 style={s.formTitle}>Envoyer un fichier</h1>
-            <p style={s.formSub}>
-              Soumets un fichier au vote de ta classe
-            </p>
+            <p style={s.formSub}>Soumets un fichier au vote de ta classe</p>
           </div>
 
           <form onSubmit={handleSubmit} style={s.form}>
 
+            {/* ZONE DE DÉPÔT */}
+            <div
+              style={{
+                ...s.dropZone,
+                borderColor: drag ? 'var(--blue-400)' : fichier ? 'var(--green-600)' : 'var(--gray-300)',
+                background : drag ? 'var(--blue-50)' : fichier ? 'var(--green-50)' : 'var(--gray-50)',
+              }}
+              onClick={() => fileRef.current.click()}
+              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                style={{ display: 'none' }}
+                accept=".pdf,.doc,.docx,.zip,.png,.jpg,.jpeg"
+                onChange={(e) => handleFichier(e.target.files[0])}
+              />
+              {fichier ? (
+                <div style={s.fileChosen}>
+                  <span style={s.fileChosenIcon}>📎</span>
+                  <div>
+                    <p style={s.fileChosenName}>{fichier.name}</p>
+                    <p style={s.fileChosenSize}>{formatSize(fichier.size)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    style={s.fileChosenRemove}
+                    onClick={(e) => { e.stopPropagation(); setFichier(null); }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div style={s.dropContent}>
+                  <span style={s.dropIcon}>☁️</span>
+                  <p style={s.dropText}>Glisse ton fichier ici</p>
+                  <p style={s.dropSub}>ou clique pour parcourir</p>
+                  <p style={s.dropTypes}>PDF · Word · ZIP · Images — max 50 Mo</p>
+                </div>
+              )}
+            </div>
+
             {/* TITRE */}
             <div style={s.fieldWrap}>
-              <label style={s.label}>Titre du fichier</label>
+              <label style={s.label}>Titre</label>
               <input
                 style={s.input}
                 type="text"
                 name="title"
-                placeholder="Ex : Examen final BDD — Session 1"
+                placeholder={fichier ? fichier.name : "Ex : Examen final BDD — Session 1"}
                 value={form.title}
                 onChange={handleChange}
-                required
               />
             </div>
 
-            {/* TYPE — sélection visuelle */}
+            {/* TYPE */}
             <div style={s.fieldWrap}>
               <label style={s.label}>Type de fichier</label>
               <div style={s.typeGrid}>
@@ -96,10 +193,7 @@ export default function UploadPage() {
                     onClick={() => setForm({ ...form, file_type: t.value })}
                   >
                     <span style={s.typeIcon}>{t.icon}</span>
-                    <span style={{
-                      ...s.typeLabel,
-                      color: form.file_type === t.value ? 'var(--blue-500)' : 'var(--gray-600)',
-                    }}>
+                    <span style={{ ...s.typeLabel, color: form.file_type === t.value ? 'var(--blue-500)' : 'var(--gray-600)' }}>
                       {t.label}
                     </span>
                   </button>
@@ -110,30 +204,30 @@ export default function UploadPage() {
             {/* CLASSE CIBLE */}
             <div style={s.fieldWrap}>
               <label style={s.label}>Classe cible</label>
-              <select
-                style={s.select}
-                name="class_id"
-                value={form.class_id}
-                onChange={handleChange}
-                required
-              >
+              <select style={s.select} name="class_id" value={form.class_id} onChange={handleChange} required>
                 <option value="">Sélectionne une classe</option>
                 {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.niveau} · {c.filiere}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.niveau} · {c.filiere}</option>
                 ))}
               </select>
             </div>
 
             {erreur && (
-              <div style={s.alert}>
-                <span>⚠️</span> {erreur}
-              </div>
+              <div style={s.alert}>⚠️ {erreur}</div>
             )}
             {succes && (
               <div style={{ ...s.alert, background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0' }}>
-                <span>✅</span> {succes}
+                ✅ {succes}
+              </div>
+            )}
+
+            {/* BARRE DE PROGRESSION */}
+            {loading && (
+              <div style={s.progressWrap}>
+                <div style={s.progressTrack}>
+                  <div style={{ ...s.progressFill, width: `${progress}%` }} />
+                </div>
+                <span style={s.progressText}>{progress}%</span>
               </div>
             )}
 
@@ -142,7 +236,7 @@ export default function UploadPage() {
               type="submit"
               disabled={loading}
             >
-              {loading ? 'Envoi en cours...' : 'Soumettre au vote →'}
+              {loading ? 'Upload en cours...' : 'Soumettre au vote →'}
             </button>
           </form>
         </div>
@@ -153,9 +247,9 @@ export default function UploadPage() {
             <h3 style={s.infoTitle}>Comment ça fonctionne</h3>
             <div style={s.infoSteps}>
               {[
-                { num: '1', title: 'Tu soumets',    desc: 'Le fichier est envoyé en attente de validation' },
-                { num: '2', title: 'La classe vote', desc: '70% des membres doivent approuver le fichier' },
-                { num: '3', title: 'Accessible',     desc: 'Le fichier devient visible pour toute la classe' },
+                { num: '1', title: 'Tu uploades',   desc: 'Le fichier est stocké de façon sécurisée' },
+                { num: '2', title: 'La classe vote', desc: '70% des membres doivent approuver' },
+                { num: '3', title: 'Accessible',     desc: 'Le fichier devient téléchargeable' },
               ].map((step) => (
                 <div key={step.num} style={s.infoStep}>
                   <div style={s.infoStepNum}>{step.num}</div>
@@ -169,26 +263,25 @@ export default function UploadPage() {
           </div>
 
           {/* APERÇU */}
-          {(form.title || form.class_id) && (
+          {(fichier || form.class_id) && (
             <div style={s.preview}>
               <p style={s.previewLabel}>Aperçu</p>
               <div style={s.previewCard}>
                 <div style={s.previewTop}>
-                  <span style={s.previewIcon}>
-                    {FILE_TYPES.find(t => t.value === form.file_type)?.icon}
-                  </span>
+                  <span>{FILE_TYPES.find(t => t.value === form.file_type)?.icon}</span>
                   <span style={s.previewStatus}>En attente</span>
                 </div>
-                <p style={s.previewTitle}>{form.title || 'Titre du fichier'}</p>
+                <p style={s.previewTitle}>
+                  {form.title || fichier?.name || 'Titre du fichier'}
+                </p>
                 {classeSelectionnee && (
                   <p style={s.previewClasse}>
-                    {classeSelectionnee.niveau} · {classeSelectionnee.filiere}
+                    → {classeSelectionnee.niveau} · {classeSelectionnee.filiere}
                   </p>
                 )}
-                <div style={s.previewVote}>
-                  <div style={s.previewBar}><div style={{ ...s.previewFill, width: '0%' }} /></div>
-                  <span style={s.previewVoteLbl}>0% — en attente des votes</span>
-                </div>
+                {fichier && (
+                  <p style={s.previewSize}>{formatSize(fichier.size)}</p>
+                )}
               </div>
             </div>
           )}
@@ -203,44 +296,58 @@ const s = {
   bgBlob      : { position: 'fixed', bottom: '-100px', right: '-100px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)', pointerEvents: 'none' },
   topBar      : { padding: '16px 32px', borderBottom: '1px solid var(--gray-200)', background: 'var(--white)' },
   retour      : { background: 'none', border: 'none', color: 'var(--blue-500)', cursor: 'pointer', fontSize: '13px', fontFamily: 'var(--font-display)', fontWeight: '500', padding: 0 },
-  wrapper     : { maxWidth: '900px', margin: '0 auto', padding: '40px 24px', display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' },
-  formSection : { display: 'flex', flexDirection: 'column', gap: '28px' },
+  wrapper     : { maxWidth: '900px', margin: '0 auto', padding: '40px 24px', display: 'grid', gridTemplateColumns: '1fr 360px', gap: '32px', alignItems: 'start' },
+  formSection : { display: 'flex', flexDirection: 'column', gap: '24px' },
   formHeader  : { display: 'flex', flexDirection: 'column', gap: '6px' },
   formTitle   : { fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: '700', color: 'var(--navy-900)' },
   formSub     : { fontSize: '14px', color: 'var(--gray-400)' },
   form        : { background: 'var(--white)', borderRadius: 'var(--radius-xl)', padding: '28px', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: '20px' },
+
+  dropZone    : { border: '2px dashed', borderRadius: 'var(--radius-lg)', padding: '32px 20px', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'center' },
+  dropContent : { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
+  dropIcon    : { fontSize: '32px' },
+  dropText    : { fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '15px', color: 'var(--navy-800)', margin: 0 },
+  dropSub     : { fontSize: '13px', color: 'var(--gray-400)', margin: 0 },
+  dropTypes   : { fontSize: '11px', color: 'var(--gray-300)', margin: '4px 0 0' },
+  fileChosen  : { display: 'flex', alignItems: 'center', gap: '12px', textAlign: 'left' },
+  fileChosenIcon: { fontSize: '28px' },
+  fileChosenName: { fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', color: 'var(--navy-800)', margin: 0 },
+  fileChosenSize: { fontSize: '11px', color: 'var(--green-600)', margin: 0 },
+  fileChosenRemove: { marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer', fontSize: '14px', padding: '4px' },
+
   fieldWrap   : { display: 'flex', flexDirection: 'column', gap: '8px' },
   label       : { fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: '600', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  input       : { padding: '12px 14px', border: '1.5px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '14px', outline: 'none', background: 'var(--gray-50)', color: 'var(--gray-800)', width: '100%', transition: 'border-color 0.2s' },
+  input       : { padding: '12px 14px', border: '1.5px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '14px', outline: 'none', background: 'var(--gray-50)', color: 'var(--gray-800)', width: '100%' },
   select      : { padding: '12px 14px', border: '1.5px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '14px', outline: 'none', background: 'var(--gray-50)', color: 'var(--gray-800)', width: '100%' },
   typeGrid    : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' },
   typeCard    : { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '14px 10px', border: '1.5px solid', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s' },
   typeIcon    : { fontSize: '20px' },
   typeLabel   : { fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '600', textAlign: 'center' },
-  alert       : { padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', display: 'flex', gap: '8px', alignItems: 'center' },
+
+  alert       : { padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '13px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3' },
+
+  progressWrap: { display: 'flex', alignItems: 'center', gap: '10px' },
+  progressTrack: { flex: 1, height: '6px', background: 'var(--gray-100)', borderRadius: '3px', overflow: 'hidden' },
+  progressFill: { height: '100%', background: 'linear-gradient(90deg, var(--blue-500), var(--blue-300))', borderRadius: '3px', transition: 'width 0.3s ease' },
+  progressText: { fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '600', color: 'var(--blue-500)', minWidth: '36px' },
+
   btn         : { padding: '13px', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-600))', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.3)', transition: 'opacity 0.15s' },
 
-  /* INFO */
   infoSection : { display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '90px' },
   infoCard    : { background: 'linear-gradient(150deg, var(--navy-900), var(--navy-700))', borderRadius: 'var(--radius-xl)', padding: '24px' },
-  infoTitle   : { fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '16px' },
+  infoTitle   : { fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: '600', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '16px' },
   infoSteps   : { display: 'flex', flexDirection: 'column', gap: '16px' },
   infoStep    : { display: 'flex', gap: '12px', alignItems: 'flex-start' },
   infoStepNum : { width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: '700', color: '#fff', flexShrink: 0, marginTop: '2px' },
   infoStepTitle: { fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '600', color: '#fff', marginBottom: '2px' },
   infoStepDesc: { fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 },
 
-  /* PREVIEW */
-  preview     : { display: 'flex', flexDirection: 'column', gap: '10px' },
+  preview     : { display: 'flex', flexDirection: 'column', gap: '8px' },
   previewLabel: { fontFamily: 'var(--font-display)', fontSize: '11px', fontWeight: '600', color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.06em' },
-  previewCard : { background: 'var(--white)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-lg)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', boxShadow: 'var(--shadow-sm)' },
+  previewCard : { background: 'var(--white)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-lg)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '6px', boxShadow: 'var(--shadow-sm)' },
   previewTop  : { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  previewIcon : { fontSize: '20px' },
   previewStatus: { fontSize: '10px', padding: '2px 8px', borderRadius: '10px', background: 'var(--amber-50)', color: 'var(--amber-600)', fontFamily: 'var(--font-display)', fontWeight: '600' },
   previewTitle: { fontSize: '13px', fontWeight: '600', color: 'var(--gray-800)', fontFamily: 'var(--font-display)', margin: 0 },
-  previewClasse: { fontSize: '11px', color: 'var(--gray-400)', margin: 0 },
-  previewVote : { display: 'flex', flexDirection: 'column', gap: '4px' },
-  previewBar  : { height: '4px', background: 'var(--gray-100)', borderRadius: '2px' },
-  previewFill : { height: '100%', background: 'var(--blue-400)', borderRadius: '2px' },
-  previewVoteLbl: { fontSize: '10px', color: 'var(--gray-300)' },
+  previewClasse: { fontSize: '11px', color: 'var(--blue-500)', margin: 0 },
+  previewSize : { fontSize: '11px', color: 'var(--gray-400)', margin: 0 },
 };
