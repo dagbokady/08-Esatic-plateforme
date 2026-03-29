@@ -9,7 +9,7 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        sync: false        # tu le mettras manuellement sur Render
+        sync: true        # tu le mettras manuellement sur Render
       - key: SECRET_KEY
         sync: false
       - key: ALGORITHM
