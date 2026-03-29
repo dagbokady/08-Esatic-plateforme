@@ -108,6 +108,14 @@ export default function DashboardPage() {
           <button style={s.btnPrimary} onClick={() => navigate('/upload')}>
             + Envoyer
           </button>
+          {user?.role === 'delegate' && (
+            <button
+              style={s.btnDelegate}
+              onClick={() => navigate('/delegue')}
+            >
+              🎖️ Espace délégué
+            </button>
+          )}
           <button style={s.btnGhost} onClick={() => { deconnexion(); navigate('/login'); }}>
             Déconnexion
           </button>
@@ -284,6 +292,7 @@ const s = {
   navUserName: { fontSize: '13px', color: 'var(--gray-600)', fontFamily: 'var(--font-display)', fontWeight: '500' },
   btnPrimary: { padding: '7px 16px', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-600))', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.25)' },
   btnGhost  : { padding: '7px 12px', background: 'transparent', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '12px', cursor: 'pointer', color: 'var(--gray-500)', fontFamily: 'var(--font-display)' },
+  btnDelegate : { padding: '7px 14px', background: 'var(--amber-50)', color: 'var(--amber-600)', border: '1px solid #FDE68A', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer' },
 
   /* BODY */
   body      : { maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },

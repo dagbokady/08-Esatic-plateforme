@@ -80,3 +80,14 @@ def get_me(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "role"     : current_user.role
     }
+
+# Route temporaire pour se nommer délégué
+# (en prod ce serait réservé à un admin)
+@router.post("/devenir-delegue")
+def devenir_delegue(
+    current_user: User    = Depends(get_current_user),
+    db          : Session = Depends(get_db)
+):
+    current_user.role = "delegate"
+    db.commit()
+    return {"message": f"{current_user.full_name} est maintenant délégué"}

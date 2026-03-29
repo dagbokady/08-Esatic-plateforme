@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from app.routers import auth, classes, files, ecues
+
 import os
 
 load_dotenv()
@@ -32,6 +34,7 @@ app.add_middleware(
 from app.routers import auth, classes, files
 app.include_router(auth.router)
 app.include_router(classes.router)
+app.include_router(ecues.router)
 app.include_router(files.router)
 
 # ── MIGRATIONS AU DÉMARRAGE ───────────────────────────
