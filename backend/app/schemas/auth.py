@@ -8,13 +8,13 @@ class UserRole(str, Enum):
 
 
 class UserResponse(BaseModel):
-    id        : UUID
-    matricule : str
-    full_name : str
-    role      : UserRole
+    id: str
+    matricule: str
+    full_name: str
+    class_id: str
 
     class Config:
-        from_attributes = True
+        from_attributes = True  # (ou orm_mode = True si Pydantic v1)
 
 class RegisterRequest(BaseModel):
     matricule : str
@@ -36,11 +36,3 @@ class TokenResponse(BaseModel):
 
 
 
-class UserResponse(BaseModel):
-    id        : str
-    matricule : str
-    full_name : str
-    role      : UserRole
-
-    class Config:
-        from_attributes = True

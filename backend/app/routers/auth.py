@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
+from sqlalchemy.exc import SQLAlchemyError
 from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserResponse
 from app.utils.auth import hacher_mot_de_passe, verifier_mot_de_passe, creer_token
 from app.utils.dependencies import get_current_user
@@ -32,11 +33,19 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         class_id      = body.class_id
     )
 
-    db.add(nouveau_user)
-    db.commit()
-    db.refresh(nouveau_user)  # recharge depuis la base pour avoir toutes les valeurs
-
-    return nouveau_user
+    try:
+        db.add(nouveau_user)
+        db.commit()
+        db.refresh(nouveau_user)
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(500, detail=str(e))
+    return {
+        "id": str(nouveau_user.id),
+        "matricule": nouveau_user.matricule,
+        "full_name": nouveau_user.full_name,
+        "class_id": str(nouveau_user.class_id)
+    }
 
 
 # ── CONNEXION ─────────────────────────────────────────

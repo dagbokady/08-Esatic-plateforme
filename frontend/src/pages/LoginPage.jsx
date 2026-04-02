@@ -7,7 +7,6 @@ import { useAuth } from '../context/AuthContext';
 export default function LoginPage() {
   const navigate      = useNavigate();
   const { connexion } = useAuth();
-  const [tab,     setTab]     = useState('login');
   const [form,    setForm]    = useState({ matricule: '', password: '' });
   const [erreur,  setErreur]  = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,6 +18,7 @@ export default function LoginPage() {
     setErreur('');
     setLoading(true);
     try {
+      console.log(form);
       const res    = await login(form);
       const token  = res.data.access_token;
       localStorage.setItem('token', token);
