@@ -77,12 +77,18 @@ TAILLE_MAX = 50 * 1024 * 1024  # 50 Mo
 def uploader_fichier(
     class_id    : str           = Form(...),
     title       : str           = Form(...),
-    file_type   : FileType      = Form(...),
+    file_type   : str      = Form(...),
     ecue_id     : str           = Form(None),
     fichier     : UploadFile     = FastAPIFile(...),
     current_user: User          = Depends(get_current_user),
     db          : Session       = Depends(get_db)
 ):
+    # Convertir string → enum
+    try:
+        file_type_enum = FileType(file_type)
+    except ValueError:
+        raise HTTPException(400, f"Type invalide : {file_type}. Valeurs acceptées : cours, sujet, corrige, td_tp")
+
     # ── Vérification permissions ──
     if not peut_uploader_vers(db, current_user, class_id):
         raise HTTPException(
@@ -120,16 +126,15 @@ def uploader_fichier(
 
     # ── Créer en base ──
     nouveau_fichier = File(
-        id          = uuid.uuid4(),
-        title       = title,
-        file_type   = file_type,
-        status      = FileStatus.pending,
-        uploader_id = current_user.id,
-        class_id    = class_id,
-        ecue_id     = ecue_id if ecue_id else None,
-        storage_url = storage_url
+        id=uuid.uuid4(),
+        title=title,
+        file_type=file_type_enum,
+        status=FileStatus.pending,
+        uploader_id=current_user.id,
+        class_id=class_id,
+        ecue_id=ecue_id if ecue_id else None,
+        storage_url=storage_url
     )
-
     db.add(nouveau_fichier)
     db.commit()
     db.refresh(nouveau_fichier)
