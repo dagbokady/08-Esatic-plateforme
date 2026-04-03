@@ -18,9 +18,21 @@ export default function RegisterPage() {
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const validerMatricule = (matricule) => {
+    const pattern = /^\d{2}-ESATIC\d+[A-Z]{2}$/;
+    return pattern.test(matricule);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErreur('');
+
+    // Validation matricule
+    if (!validerMatricule(form.matricule)) {
+      setErreur('Format invalide. Exemple : 22-ESATIC0069AK (2 chiffres - ESATIC - numéros - 2 lettres majuscules)');
+      return;
+    }
+
     setLoading(true);
     try {
       await register(form);
@@ -66,9 +78,13 @@ export default function RegisterPage() {
               <Field label="Nom complet" name="full_name"
                      placeholder="Kouassi Jean" value={form.full_name}
                      onChange={handleChange} />
-              <Field label="Matricule" name="matricule"
-                     placeholder="21INF001" value={form.matricule}
-                     onChange={handleChange} />
+              <Field
+                label="Matricule"
+                name="matricule"
+                placeholder="Ex : 22-ESATIC0069AK"
+                value={form.matricule}
+                onChange={handleChange}
+              />
             </div>
 
             <div style={s.fieldWrap}>

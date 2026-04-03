@@ -84,7 +84,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} style={s.form}>
               <Field label="Matricule" name="matricule"
-                     placeholder="Ex : 21INF001" value={form.matricule}
+                     placeholder="Ex : 22-ESATIC0069AK" value={form.matricule}
                      onChange={handleChange} />
               <Field label="Mot de passe" name="password" type="password"
                      placeholder="••••••••" value={form.password}

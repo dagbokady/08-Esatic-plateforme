@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from enum import Enum
-from uuid import UUID
+
 
 class UserRole(str, Enum):
     student  = "student"

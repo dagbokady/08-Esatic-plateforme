@@ -7,23 +7,40 @@ from app.schemas.auth import RegisterRequest, LoginRequest, TokenResponse, UserR
 from app.utils.auth import hacher_mot_de_passe, verifier_mot_de_passe, creer_token
 from app.utils.dependencies import get_current_user
 import uuid
-
+import re
 router = APIRouter(prefix="/auth", tags=["Authentification"])
 
 
 # ── INSCRIPTION ───────────────────────────────────────
+def valider_matricule(matricule: str) -> bool:
+    """
+    Format attendu : 22-ESATIC0069AK
+    - 2 chiffres (année)
+    - tiret
+    - ESATIC (obligatoire)
+    - chiffres (numéro)
+    - 2 lettres majuscules (fin)
+    """
+    pattern = r'^\d{2}-ESATIC\d+[A-Z]{2}$'
+    return bool(re.match(pattern, matricule))
+
+
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    # Valider le format du matricule
+    if not valider_matricule(body.matricule):
+        raise HTTPException(
+            status_code=400,
+            detail="Format de matricule invalide. Exemple : 22-ESATIC0069AK"
+        )
 
+    # Vérifier que le matricule n'existe pas déjà
     existe = db.query(User).filter(
-                 User.matricule == body.matricule
-             ).first()
+        User.matricule == body.matricule
+    ).first()
 
     if existe:
-        raise HTTPException(
-            status_code = status.HTTP_409_CONFLICT,
-            detail      = "Ce matricule est déjà utilisé"
-        )
+        raise HTTPException(409, "Ce matricule est déjà utilisé")
 
     nouveau_user = User(
         id            = uuid.uuid4(),
