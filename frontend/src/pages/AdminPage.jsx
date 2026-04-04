@@ -2,7 +2,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getStats, getUsers, getClassesAdmin, getDemandes, nommerDelegue, revoquerDelegue, desactiverUser, approuverAdmin, refuserAdmin } from '../services/adminService';
+import {
+  getStats, getUsers, getClassesAdmin, getDemandes,
+  nommerDelegue, revoquerDelegue, desactiverUser,
+  approuverAdmin, refuserAdmin,
+  getFichiersAdmin, supprimerFichierAdmin, approuverFichierAdmin
+} from '../services/adminService';
+
 export default function AdminPage() {
   const { user, deconnexion } = useAuth();
   const navigate = useNavigate();
@@ -13,6 +19,7 @@ export default function AdminPage() {
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [demandes, setDemandes] = useState([]);
+  const [fichiers, setFichiers] = useState([]);
   const [search,   setSearch]   = useState('');
 
   useEffect(() => {
@@ -21,14 +28,14 @@ export default function AdminPage() {
 
   const charger = async () => {
     try {
-      const [s, u, c, d] = await Promise.all([
-        getStats(), getUsers(), getClassesAdmin(), getDemandes()
+      const [s, u, c, d, f] = await Promise.all([
+        getStats(), getUsers(), getClassesAdmin(), getDemandes(), getFichiersAdmin()
       ]);
       setStats(s.data);
       setUsers(u.data);
       setClasses(c.data);
       setDemandes(d.data);
-      setClasses(c.data);
+      setFichiers(f.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -136,6 +143,7 @@ export default function AdminPage() {
           {[
             { key: 'users',   label: `Utilisateurs (${users.length})` },
             { key: 'classes', label: `Classes (${classes.length})` },
+            { key: 'fichiers', label: `Fichiers (${fichiers.length})` },
             { key: 'demandes', label: `Demandes (${demandes.length})` },
           ].map((o) => (
             <button
@@ -310,6 +318,83 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {onglet === 'fichiers' && (
+          <div style={s.section}>
+            <div style={s.table}>
+              <div style={s.tableHeader}>
+                <span style={{ flex: 2 }}>Titre</span>
+                <span style={{ flex: 1 }}>Classe</span>
+                <span style={{ flex: 1 }}>Uploadé par</span>
+                <span style={{ flex: 1 }}>Statut</span>
+                <span style={{ flex: 1, textAlign: 'right' }}>Actions</span>
+              </div>
+              {fichiers.map((f) => (
+                <div key={f.id} style={s.tableRow}>
+                  <div style={{ flex: 2 }}>
+                    <p style={{ margin: 0, fontWeight: '500', color: 'var(--gray-800)', fontSize: '13px' }}>
+                      {f.title}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--gray-400)' }}>
+                      {f.file_type}
+                    </p>
+                  </div>
+                  <span style={{ flex: 1, fontSize: '12px', color: 'var(--gray-500)' }}>
+            {f.classe || '—'}
+          </span>
+                  <span style={{ flex: 1, fontSize: '12px', color: 'var(--gray-500)' }}>
+            {f.uploader || '—'}
+          </span>
+                  <span style={{ flex: 1 }}>
+            <span style={{
+              padding: '2px 8px',
+              borderRadius: '10px',
+              fontSize: '11px',
+              fontFamily: 'var(--font-display)',
+              fontWeight: '600',
+              background: f.status === 'approved' ? '#DCFCE7' : '#FEF9C3',
+              color     : f.status === 'approved' ? '#166534' : '#854D0E',
+            }}>
+              {f.status === 'approved' ? 'Validé' : 'En attente'}
+            </span>
+          </span>
+                  <div style={{ flex: 1, display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    {f.status === 'pending' && (
+                      <button
+                        style={{ ...s.btnAction, background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0' }}
+                        onClick={async () => {
+                          await approuverFichierAdmin(f.id);
+                          charger();
+                        }}
+                      >
+                        ✓ Valider
+                      </button>
+                    )}
+                    {f.storage_url && (
+                      <a
+                      href={f.storage_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ ...s.btnAction, textDecoration: 'none' }}
+                      >
+                      ⬇
+                      </a>
+                      )}
+                    <button
+                      style={{ ...s.btnAction, background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3' }}
+                      onClick={async () => {
+                        if (!confirm(`Supprimer "${f.title}" ?`)) return;
+                        await supprimerFichierAdmin(f.id);
+                        charger();
+                      }}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                </div>
+                ))}
+            </div>
+          </div>
+          )}
 
       </div>
     </div>

@@ -199,3 +199,69 @@ def refuser_admin(
     user.approval_status = ApprovalStatus.rejected
     db.commit()
     return {"message": f"Inscription de {user.full_name} refusée"}
+
+# ── TOUS LES FICHIERS ─────────────────────────────────
+@router.get("/fichiers")
+def tous_fichiers(
+    db: Session = Depends(get_db),
+    _ : User    = Depends(get_current_admin)
+):
+    from app.models.file import File, FileStatus
+    fichiers = db.query(File).order_by(File.created_at.desc()).all()
+    resultat = []
+    for f in fichiers:
+        uploader = db.query(User).filter(User.id == f.uploader_id).first()
+        classe   = db.query(Class).filter(Class.id == f.class_id).first()
+        niveau   = db.query(Level).filter(Level.id == classe.level_id).first() if classe else None
+        filiere  = db.query(Filiere).filter(Filiere.id == classe.filiere_id).first() if classe else None
+        resultat.append({
+            "id"         : str(f.id),
+            "title"      : f.title,
+            "file_type"  : f.file_type,
+            "status"     : f.status,
+            "storage_url": f.storage_url,
+            "created_at" : str(f.created_at),
+            "uploader"   : uploader.full_name if uploader else None,
+            "classe"     : f"{niveau.name} · {filiere.name}" if niveau and filiere else None,
+        })
+    return resultat
+
+
+# ── SUPPRIMER UN FICHIER (admin) ──────────────────────
+@router.delete("/fichiers/{file_id}")
+def supprimer_fichier_admin(
+    file_id: str,
+    db     : Session = Depends(get_db),
+    _      : User    = Depends(get_current_admin)
+):
+    from app.models.file import File
+    from app.models.vote import Vote
+    from app.services.storage_service import supprimer_fichier_storage
+
+    fichier = db.query(File).filter(File.id == file_id).first()
+    if not fichier:
+        raise HTTPException(404, "Fichier introuvable")
+
+    if fichier.storage_url:
+        supprimer_fichier_storage(fichier.storage_url)
+
+    db.query(Vote).filter(Vote.file_id == file_id).delete()
+    db.delete(fichier)
+    db.commit()
+    return {"message": "Fichier supprimé"}
+
+
+# ── CHANGER STATUT FICHIER (admin) ────────────────────
+@router.post("/fichiers/{file_id}/approuver")
+def approuver_fichier_admin(
+    file_id: str,
+    db     : Session = Depends(get_db),
+    _      : User    = Depends(get_current_admin)
+):
+    from app.models.file import File, FileStatus
+    fichier = db.query(File).filter(File.id == file_id).first()
+    if not fichier:
+        raise HTTPException(404, "Fichier introuvable")
+    fichier.status = FileStatus.approved
+    db.commit()
+    return {"message": "Fichier approuvé"}
