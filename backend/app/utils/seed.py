@@ -91,7 +91,7 @@ def seed():
         db.add(User(
             id            = uuid.uuid4(),
             matricule     = admin_matricule,
-            full_name     = os.getenv("ADMIN_NAME"),
+            full_name     = "Administrateur",
             password_hash = hacher_mot_de_passe(os.getenv("ADMIN_PASSWORD")),
             role          = UserRole.admin,
             approval_status= "approved",
