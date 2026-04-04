@@ -3,6 +3,7 @@ from app.database import SessionLocal
 from app.models.academic import Level, Filiere, Class
 from app.models.user import User, UserRole
 from app.utils.auth import hacher_mot_de_passe
+import os
 import uuid
 
 
@@ -83,16 +84,15 @@ def seed():
     db.commit()
     print("✅ Classes insérées")
 
-    # ── ADMIN ─────────────────────────────────────────
-    # Matricule admin : 00-ESATIC0000AD
-    admin_matricule = "22-ESATIC0065AK"
+    # ── ADMIN ────────────────────────────────────────
+    admin_matricule = os.getenv("ADMIN_MATRICULE")
 
     if not db.query(User).filter_by(matricule=admin_matricule).first():
         db.add(User(
             id            = uuid.uuid4(),
             matricule     = admin_matricule,
-            full_name     = "DAGBO KADY",
-            password_hash = hacher_mot_de_passe("mJ-7x#112"),
+            full_name     = os.getenv("ADMIN_NAME"),
+            password_hash = hacher_mot_de_passe(os.getenv("ADMIN_PASSWORD")),
             role          = UserRole.admin,
             approval_status= "approved",
             is_active     = True,
@@ -100,8 +100,6 @@ def seed():
         ))
         db.commit()
         print("✅ Admin créé")
-        print("   Matricule : 22-ESATIC0000xx")
-        print("   Password  : mj-.....")
     else:
         print("✅ Admin déjà existant")
 
