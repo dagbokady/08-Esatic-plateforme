@@ -41,17 +41,18 @@ def fichiers_classe(
         nb_membres = compter_membres_actifs(db, f.class_id)
 
         resultat.append({
-            "id"         : str(f.id),
-            "title"      : f.title,
-            "file_type"  : f.file_type,
-            "status"     : f.status,
-            "created_at" : f.created_at,
+            "id": str(f.id),
+            "title": f.title,
+            "file_type": f.file_type,
+            "status": f.status,
+            "created_at": f.created_at,
             "uploader_id": str(f.uploader_id),
-            "ecue_id"    : str(f.ecue_id) if f.ecue_id else None,
-            "votes"      : {
-                "count"   : nb_votes,
+            "ecue_id": str(f.ecue_id) if f.ecue_id else None,
+            "storage_url": f.storage_url,  # ← vérifie que cette ligne existe
+            "votes": {
+                "count": nb_votes,
                 "required": int(nb_membres * 0.70),
-                "total"   : nb_membres
+                "total": nb_membres
             }
         })
 
@@ -125,11 +126,13 @@ def uploader_fichier(
         )
 
     # ── Créer en base ──
+    est_sa_classe = str(current_user.class_id) == str(class_id)
+
     nouveau_fichier = File(
         id=uuid.uuid4(),
         title=title,
         file_type=file_type_enum,
-        status=FileStatus.pending,
+        status=FileStatus.approved if est_sa_classe else FileStatus.pending,
         uploader_id=current_user.id,
         class_id=class_id,
         ecue_id=ecue_id if ecue_id else None,
@@ -140,11 +143,12 @@ def uploader_fichier(
     db.refresh(nouveau_fichier)
 
     return {
-        "id"         : str(nouveau_fichier.id),
-        "title"      : nouveau_fichier.title,
-        "status"     : nouveau_fichier.status,
+        "id": str(nouveau_fichier.id),
+        "title": nouveau_fichier.title,
+        "status": nouveau_fichier.status,
         "storage_url": storage_url,
-        "message"    : "Fichier uploadé — en attente de validation par 70% des membres"
+        "message": "Fichier ajouté à ta classe ✅" if est_sa_classe
+        else "Fichier soumis — en attente de validation par 70% des membres"
     }
 # ── VOTER POUR UN FICHIER ─────────────────────────────
 @router.post("/{file_id}/vote")

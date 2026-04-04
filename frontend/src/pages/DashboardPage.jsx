@@ -99,10 +99,15 @@ export default function DashboardPage() {
           )}
         </div>
         <div style={s.navRight}>
-          <div style={s.navUser}>
 
-
-          </div>
+          {user?.role === 'admin' && (
+            <button
+              style={{ ...s.btnGhost, color: '#7C3AED', borderColor: '#EDE9FE' }}
+              onClick={() => navigate('/admin')}
+            >
+              ⚙️ Admin
+            </button>
+          )}
           <button style={s.btnPrimary} onClick={() => navigate('/upload')}>
             + Envoyer
           </button>
@@ -114,13 +119,17 @@ export default function DashboardPage() {
               🎖️ Espace délégué
             </button>
           )}
-          <button style={s.btnGhost} onClick={() => { deconnexion(); navigate('/login'); }}>
-            Déconnexion
-          </button>
-          <span style={s.navUserName}>{user?.full_name}</span>
-          <div style={s.avatar}>
-            {user?.full_name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+          <div style={s.navUser}>
+
+            <button style={s.btnGhost} onClick={() => { deconnexion(); navigate('/login'); }}>
+              Déconnexion
+            </button>
+            <span style={s.navUserName}>{user?.full_name}</span>
+            <div style={s.avatar}>
+              {user?.full_name?.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+            </div>
           </div>
+
 
         </div>
       </nav>
@@ -189,13 +198,15 @@ export default function DashboardPage() {
             </button>
           </div>
         ) : (
+
           <div style={s.grid}>
             {fichiersFiltres.map((f, i) => {
-              const type         = FILE_TYPE_LABELS[f.file_type] || FILE_TYPE_LABELS.cours;
-              const estMien      = f.uploader_id === user?.id;
-              const peutVoter    = !estMien && f.status === 'pending';
-              const pct          = f.votes.total > 0 ? Math.round((f.votes.count / f.votes.total) * 100) : 0;
-              const isVoting     = votingId === f.id;
+              const type      = FILE_TYPE_LABELS[f.file_type] || FILE_TYPE_LABELS.cours;
+              const estMien   = f.uploader_id === user?.id;
+              const pct       = f.votes.total > 0 ? Math.round((f.votes.count / f.votes.total) * 100) : 0;
+              const isVoting  = votingId === f.id;
+              const isImage   = f.storage_url?.match(/\.(png|jpg|jpeg|webp)(\?|$)/i);
+              const isPdf     = f.storage_url?.match(/\.pdf(\?|$)/i);
 
               return (
                 <div
@@ -206,20 +217,42 @@ export default function DashboardPage() {
                     animation: 'fadeUp 0.4s ease both',
                   }}
                 >
+                  {/* APERÇU */}
+                  <div style={s.previewWrap}>
+                    {isImage ? (
+                      <img
+                        src={f.storage_url}
+                        alt={f.title}
+                        style={s.previewImg}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : isPdf ? (
+                      <iframe
+                        src={`${f.storage_url}#toolbar=0&navpanes=0&scrollbar=0`}
+                        style={s.previewPdf}
+                        title={f.title}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div style={s.previewPlaceholder}>
+                        <span style={{ fontSize: '32px' }}>{type.icon}</span>
+                        <span style={s.previewPlaceholderText}>{type.label}</span>
+                      </div>
+                    )}
+
+                    {/* STATUS DOT superposé */}
+                    <div style={{
+                      ...s.statusBubble,
+                      background: f.status === 'approved' ? 'var(--green-600)' : 'var(--amber-600)',
+                    }} />
+                  </div>
+
                   {/* TYPE BADGE */}
                   <div style={s.cardTop}>
-                    <div style={{
-                      ...s.typeBadge,
-                      background: type.color,
-                      color     : type.text,
-                    }}>
+                    <div style={{ ...s.typeBadge, background: type.color, color: type.text }}>
                       <span>{type.icon}</span>
                       <span>{type.label}</span>
                     </div>
-                    <div style={{
-                      ...s.statusDot,
-                      background: f.status === 'approved' ? 'var(--green-600)' : 'var(--amber-600)',
-                    }} />
                   </div>
 
                   {/* TITRE */}
@@ -248,7 +281,17 @@ export default function DashboardPage() {
 
                   {/* ACTIONS */}
                   <div style={s.cardActions}>
-                    {peutVoter && (
+                    {f.status === 'approved' && f.storage_url && (
+                      <a
+                      href={f.storage_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={s.btnDownload}
+                      >
+                      ⬇ Télécharger
+                      </a>
+                      )}
+                    {f.status === 'pending' && !estMien && (
                       <button
                         style={{ ...s.btnVote, opacity: isVoting ? 0.7 : 1 }}
                         onClick={() => handleVote(f.id)}
@@ -257,27 +300,13 @@ export default function DashboardPage() {
                         {isVoting ? '...' : '👍 Voter'}
                       </button>
                     )}
-
                     {estMien && (
                       <button style={s.btnDel} onClick={() => handleSupprimer(f.id)}>
                         🗑
                       </button>
                     )}
-                    {estMien && (
-                      <span style={s.ownerTag}>Mon fichier</span>
-                    )}
-                    {/* Dans la section cardActions, ajoute : */}
-                    {f.status === 'approved' && f.storage_url && (
-                    <a  href={f.storage_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={s.btnDownload}
-                      >
-                      ⬇ Télécharger
-                      </a>
-                      )}
+                    {estMien && <span style={s.ownerTag}>Mon fichier</span>}
                   </div>
-
                 </div>
               );
             })}
@@ -309,6 +338,12 @@ const s = {
   btnGhost  : { padding: '7px 12px', background: 'transparent', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '12px', cursor: 'pointer', color: 'var(--gray-500)', fontFamily: 'var(--font-display)' },
   btnDelegate : { padding: '7px 14px', background: 'var(--amber-50)', color: 'var(--amber-600)', border: '1px solid #FDE68A', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer' },
   btnDownload : { padding: '5px 10px', background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' },
+  previewWrap          : { width: '100%', height: '110px', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--gray-100)', position: 'relative', marginBottom: '2px' },
+  previewImg           : { width: '100%', height: '100%', objectFit: 'cover' },
+  previewPdf           : { width: '100%', height: '100%', border: 'none', pointerEvents: 'none', transform: 'scale(1)', transformOrigin: 'top left' },
+  previewPlaceholder   : { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--gray-50)' },
+  previewPlaceholderText: { fontSize: '11px', color: 'var(--gray-400)', fontFamily: 'var(--font-display)', fontWeight: '500' },
+  statusBubble         : { position: 'absolute', top: '8px', right: '8px', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid white' },
   /* BODY */
   body      : { maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },
 
@@ -358,4 +393,5 @@ const s = {
   btnVote   : { padding: '5px 10px', background: 'var(--blue-50)', color: 'var(--blue-500)', border: '1px solid var(--blue-100)', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', cursor: 'pointer' },
   btnDel    : { padding: '5px 8px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' },
   ownerTag  : { fontSize: '10px', color: 'var(--gray-300)', fontStyle: 'italic', marginLeft: 'auto' },
+
 };

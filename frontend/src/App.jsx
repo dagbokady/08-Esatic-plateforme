@@ -6,6 +6,9 @@ import UploadPage     from './pages/UploadPage';
 import DelegatePage   from './pages/DelegatePage';
 import RejoindrePage  from './pages/RejoindrePage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
+import AdminPage from './pages/AdminPage';
+
+// Dans les routes :
 
 export default function App() {
   return (
@@ -13,6 +16,9 @@ export default function App() {
       <Route path="/login"    element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/rejoindre/:token" element={<RejoindrePage />} />
+      <Route path="/admin" element={
+        <ProtectedRoute><AdminPage /></ProtectedRoute>
+      } />
       <Route path="/dashboard" element={
         <ProtectedRoute><DashboardPage /></ProtectedRoute>
       } />
