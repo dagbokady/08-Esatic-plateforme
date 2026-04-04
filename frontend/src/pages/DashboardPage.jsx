@@ -4,13 +4,109 @@ import { useAuth } from '../context/AuthContext';
 import { getMaClasse } from '../services/classService';
 import { getFichiersClasse, voter, supprimerFichier } from '../services/fileService';
 import { useNavigate } from 'react-router-dom';
-
+import { getEcuesClasse } from '../services/ecueService';
 const FILE_TYPE_LABELS = {
   cours  : { label: 'Cours',           icon: '📘', color: '#EFF6FF', text: '#1D4ED8' },
   sujet  : { label: "Sujet d'examen",  icon: '📄', color: '#FFF7ED', text: '#C2410C' },
   corrige: { label: 'Corrigé',         icon: '✅', color: '#F0FDF4', text: '#15803D' },
   td_tp  : { label: 'TD / TP',         icon: '📁', color: '#FAF5FF', text: '#7C3AED' },
 };
+
+function FileCard({ f, i, user, votingId, handleVote, handleSupprimer, s }) {
+  const type      = FILE_TYPE_LABELS[f.file_type] || FILE_TYPE_LABELS.cours;
+  const estMien   = f.uploader_id === user?.id;
+  const pct       = f.votes.total > 0 ? Math.round((f.votes.count / f.votes.total) * 100) : 0;
+  const isVoting  = votingId === f.id;
+  const isImage   = f.storage_url?.match(/\.(png|jpg|jpeg|webp)(\?|$)/i);
+  const isPdf     = f.storage_url?.match(/\.pdf(\?|$)/i);
+
+  return (
+    <div
+      style={{
+        ...s.card,
+        animationDelay: `${i * 0.05}s`,
+        animation: 'fadeUp 0.4s ease both',
+      }}
+    >
+      {/* APERÇU */}
+      <div style={s.previewWrap}>
+        {isImage ? (
+          <img src={f.storage_url} alt={f.title} style={s.previewImg}
+               onError={(e) => { e.target.style.display = 'none'; }} />
+        ) : isPdf ? (
+          <iframe
+            src={`${f.storage_url}#toolbar=0&navpanes=0&scrollbar=0`}
+            style={s.previewPdf} title={f.title} loading="lazy"
+          />
+        ) : (
+          <div style={s.previewPlaceholder}>
+            <span style={{ fontSize: '32px' }}>{type.icon}</span>
+            <span style={s.previewPlaceholderText}>{type.label}</span>
+          </div>
+        )}
+        <div style={{
+          ...s.statusBubble,
+          background: f.status === 'approved' ? 'var(--green-600)' : 'var(--amber-600)',
+        }} />
+      </div>
+
+      {/* TYPE BADGE */}
+      <div style={s.cardTop}>
+        <div style={{ ...s.typeBadge, background: type.color, color: type.text }}>
+          <span>{type.icon}</span>
+          <span>{type.label}</span>
+        </div>
+      </div>
+
+      {/* TITRE */}
+      <h3 style={s.cardTitle}>{f.title}</h3>
+
+      {/* STATUS */}
+      {f.status === 'approved' ? (
+        <span style={s.approvedTag}>✓ Validé</span>
+      ) : (
+        <div style={s.voteSection}>
+          <div style={s.voteHeader}>
+            <span style={s.votePct}>{pct}%</span>
+            <span style={s.voteCount}>{f.votes.count}/{f.votes.required} votes</span>
+          </div>
+          <div style={s.voteTrack}>
+            <div style={{
+              ...s.voteFill,
+              width: `${Math.min(pct, 100)}%`,
+              background: pct >= 70
+                ? 'linear-gradient(90deg, var(--green-600), #22C55E)'
+                : 'linear-gradient(90deg, var(--blue-500), var(--blue-300))',
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* ACTIONS */}
+      <div style={s.cardActions}>
+        {f.status === 'approved' && f.storage_url && (
+          <a href={f.storage_url} target="_blank" rel="noopener noreferrer"
+             style={s.btnDownload}>
+            ⬇ Télécharger
+          </a>
+        )}
+        {f.status === 'pending' && !estMien && (
+          <button
+            style={{ ...s.btnVote, opacity: isVoting ? 0.7 : 1 }}
+            onClick={() => handleVote(f.id)}
+            disabled={isVoting}
+          >
+            {isVoting ? '...' : '👍 Voter'}
+          </button>
+        )}
+        {estMien && (
+          <button style={s.btnDel} onClick={() => handleSupprimer(f.id)}>🗑</button>
+        )}
+        {estMien && <span style={s.ownerTag}>Mon fichier</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { user, deconnexion } = useAuth();
@@ -19,6 +115,9 @@ export default function DashboardPage() {
   const [classe,   setClasse]   = useState(null);
   const [fichiers, setFichiers] = useState([]);
   const [loading,  setLoading]  = useState(true);
+  // Ajoute ces états en haut du composant
+  const [ecues,       setEcues]       = useState([]);
+  const [ecueFiltre,  setEcueFiltre]  = useState('tous');
   const [filtre,   setFiltre]   = useState('tous');
   const [votingId, setVotingId] = useState(null);
 
@@ -26,9 +125,16 @@ export default function DashboardPage() {
     getMaClasse()
       .then((res) => {
         setClasse(res.data);
-        return getFichiersClasse(res.data.id);
+        // Charger les fichiers et les ECUE en parallèle
+        return Promise.all([
+          getFichiersClasse(res.data.id),
+          getEcuesClasse(res.data.id),
+        ]);
       })
-      .then((res) => setFichiers(res.data))
+      .then(([fichiersRes, ecuesRes]) => {
+        setFichiers(fichiersRes.data);
+        setEcues(ecuesRes.data);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -162,6 +268,7 @@ export default function DashboardPage() {
         )}
 
         {/* FILTRES */}
+        {/* FILTRES STATUT */}
         <div style={s.filtresBar}>
           <div style={s.filtres}>
             {filtres.map((f) => (
@@ -181,137 +288,142 @@ export default function DashboardPage() {
                   background: filtre === f.key ? 'rgba(255,255,255,0.2)' : 'var(--gray-100)',
                   color     : filtre === f.key ? '#fff' : 'var(--gray-400)',
                 }}>
-                  {f.count}
-                </span>
+          {f.count}
+        </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* GRILLE */}
-        {fichiersFiltres.length === 0 ? (
-          <div style={s.empty}>
-            <span style={s.emptyIcon}>📂</span>
-            <p style={s.emptyText}>Aucun fichier dans cette catégorie</p>
-            <button style={s.emptyBtn} onClick={() => navigate('/upload')}>
-              Envoyer le premier fichier
-            </button>
-          </div>
-        ) : (
-
-          <div style={s.grid}>
-            {fichiersFiltres.map((f, i) => {
-              const type      = FILE_TYPE_LABELS[f.file_type] || FILE_TYPE_LABELS.cours;
-              const estMien   = f.uploader_id === user?.id;
-              const pct       = f.votes.total > 0 ? Math.round((f.votes.count / f.votes.total) * 100) : 0;
-              const isVoting  = votingId === f.id;
-              const isImage   = f.storage_url?.match(/\.(png|jpg|jpeg|webp)(\?|$)/i);
-              const isPdf     = f.storage_url?.match(/\.pdf(\?|$)/i);
-
-              return (
-                <div
-                  key={f.id}
+        {/* FILTRES PAR ECUE */}
+        {ecues.length > 0 && (
+          <div style={s.ecueBar}>
+            <span style={s.ecueBarLabel}>Matière :</span>
+            <div style={s.ecueFiltres}>
+              <button
+                style={{
+                  ...s.ecueFiltre,
+                  background: ecueFiltre === 'tous' ? 'var(--blue-500)' : 'var(--white)',
+                  color     : ecueFiltre === 'tous' ? '#fff' : 'var(--gray-500)',
+                }}
+                onClick={() => setEcueFiltre('tous')}
+              >
+                Toutes
+              </button>
+              {ecues.map((e) => (
+                <button
+                  key={e.id}
                   style={{
-                    ...s.card,
-                    animationDelay: `${i * 0.05}s`,
-                    animation: 'fadeUp 0.4s ease both',
+                    ...s.ecueFiltre,
+                    background: ecueFiltre === e.id ? 'var(--blue-500)' : 'var(--white)',
+                    color     : ecueFiltre === e.id ? '#fff' : 'var(--gray-500)',
                   }}
+                  onClick={() => setEcueFiltre(e.id)}
                 >
-                  {/* APERÇU */}
-                  <div style={s.previewWrap}>
-                    {isImage ? (
-                      <img
-                        src={f.storage_url}
-                        alt={f.title}
-                        style={s.previewImg}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    ) : isPdf ? (
-                      <iframe
-                        src={`${f.storage_url}#toolbar=0&navpanes=0&scrollbar=0`}
-                        style={s.previewPdf}
-                        title={f.title}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div style={s.previewPlaceholder}>
-                        <span style={{ fontSize: '32px' }}>{type.icon}</span>
-                        <span style={s.previewPlaceholderText}>{type.label}</span>
-                      </div>
-                    )}
-
-                    {/* STATUS DOT superposé */}
-                    <div style={{
-                      ...s.statusBubble,
-                      background: f.status === 'approved' ? 'var(--green-600)' : 'var(--amber-600)',
-                    }} />
-                  </div>
-
-                  {/* TYPE BADGE */}
-                  <div style={s.cardTop}>
-                    <div style={{ ...s.typeBadge, background: type.color, color: type.text }}>
-                      <span>{type.icon}</span>
-                      <span>{type.label}</span>
-                    </div>
-                  </div>
-
-                  {/* TITRE */}
-                  <h3 style={s.cardTitle}>{f.title}</h3>
-
-                  {/* STATUS */}
-                  {f.status === 'approved' ? (
-                    <span style={s.approvedTag}>✓ Validé</span>
-                  ) : (
-                    <div style={s.voteSection}>
-                      <div style={s.voteHeader}>
-                        <span style={s.votePct}>{pct}%</span>
-                        <span style={s.voteCount}>{f.votes.count}/{f.votes.required} votes</span>
-                      </div>
-                      <div style={s.voteTrack}>
-                        <div style={{
-                          ...s.voteFill,
-                          width: `${Math.min(pct, 100)}%`,
-                          background: pct >= 70
-                            ? 'linear-gradient(90deg, var(--green-600), #22C55E)'
-                            : 'linear-gradient(90deg, var(--blue-500), var(--blue-300))',
-                        }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ACTIONS */}
-                  <div style={s.cardActions}>
-                    {f.status === 'approved' && f.storage_url && (
-                      <a
-                      href={f.storage_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={s.btnDownload}
-                      >
-                      ⬇ Télécharger
-                      </a>
-                      )}
-                    {f.status === 'pending' && !estMien && (
-                      <button
-                        style={{ ...s.btnVote, opacity: isVoting ? 0.7 : 1 }}
-                        onClick={() => handleVote(f.id)}
-                        disabled={isVoting}
-                      >
-                        {isVoting ? '...' : '👍 Voter'}
-                      </button>
-                    )}
-                    {estMien && (
-                      <button style={s.btnDel} onClick={() => handleSupprimer(f.id)}>
-                        🗑
-                      </button>
-                    )}
-                    {estMien && <span style={s.ownerTag}>Mon fichier</span>}
-                  </div>
-                </div>
-              );
-            })}
+                  {e.name}
+                </button>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* GRILLE */}
+        {(() => {
+          // Appliquer les deux filtres
+          const fichiersAffiches = fichiersFiltres.filter((f) => {
+            if (ecueFiltre === 'tous') return true;
+            return f.ecue_id === ecueFiltre;
+          });
+
+          if (fichiersAffiches.length === 0) return (
+            <div style={s.empty}>
+              <span style={s.emptyIcon}>📂</span>
+              <p style={s.emptyText}>Aucun fichier dans cette catégorie</p>
+              <button style={s.emptyBtn} onClick={() => navigate('/upload')}>
+                Envoyer le premier fichier
+              </button>
+            </div>
+          );
+
+          // Grouper par ECUE si on affiche "toutes"
+          if (ecueFiltre === 'tous' && ecues.length > 0) {
+            const parEcue = ecues.map((ecue) => ({
+              ecue,
+              fichiers: fichiersAffiches.filter(f => f.ecue_id === ecue.id),
+            })).filter(g => g.fichiers.length > 0);
+
+            const sansEcue = fichiersAffiches.filter(f => !f.ecue_id);
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                {parEcue.map(({ ecue, fichiers: fichiersEcue }) => (
+                  <div key={ecue.id}>
+                    <div style={s.ecueSection}>
+                      <span style={s.ecueSectionDot} />
+                      <h3 style={s.ecueSectionTitle}>{ecue.name}</h3>
+                      <span style={s.ecueSectionCount}>{fichiersEcue.length} fichier{fichiersEcue.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={s.grid}>
+                      {fichiersEcue.map((f, i) => (
+                        <FileCard
+                          key={f.id}
+                          f={f}
+                          i={i}
+                          user={user}
+                          votingId={votingId}
+                          handleVote={handleVote}
+                          handleSupprimer={handleSupprimer}
+                          s={s}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {sansEcue.length > 0 && (
+                  <div>
+                    <div style={s.ecueSection}>
+                      <span style={s.ecueSectionDot} />
+                      <h3 style={s.ecueSectionTitle}>Sans matière</h3>
+                      <span style={s.ecueSectionCount}>{sansEcue.length} fichier{sansEcue.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <div style={s.grid}>
+                      {sansEcue.map((f, i) => (
+                        <FileCard
+                          key={f.id}
+                          f={f}
+                          i={i}
+                          user={user}
+                          votingId={votingId}
+                          handleVote={handleVote}
+                          handleSupprimer={handleSupprimer}
+                          s={s}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <div style={s.grid}>
+              {fichiersAffiches.map((f, i) => (
+                <FileCard
+                  key={f.id}
+                  f={f}
+                  i={i}
+                  user={user}
+                  votingId={votingId}
+                  handleVote={handleVote}
+                  handleSupprimer={handleSupprimer}
+                  s={s}
+                />
+              ))}
+            </div>
+          );
+        })()}
+
       </div>
     </div>
   );
@@ -337,14 +449,6 @@ const s = {
   btnPrimary: { padding: '7px 16px', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-600))', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.25)' },
   btnGhost  : { padding: '7px 12px', background: 'transparent', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontSize: '12px', cursor: 'pointer', color: 'var(--gray-500)', fontFamily: 'var(--font-display)' },
   btnDelegate : { padding: '7px 14px', background: 'var(--amber-50)', color: 'var(--amber-600)', border: '1px solid #FDE68A', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer' },
-  btnDownload : { padding: '5px 10px', background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' },
-  previewWrap          : { width: '100%', height: '110px', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--gray-100)', position: 'relative', marginBottom: '2px' },
-  previewImg           : { width: '100%', height: '100%', objectFit: 'cover' },
-  previewPdf           : { width: '100%', height: '100%', border: 'none', pointerEvents: 'none', transform: 'scale(1)', transformOrigin: 'top left' },
-  previewPlaceholder   : { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--gray-50)' },
-  previewPlaceholderText: { fontSize: '11px', color: 'var(--gray-400)', fontFamily: 'var(--font-display)', fontWeight: '500' },
-  statusBubble         : { position: 'absolute', top: '8px', right: '8px', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid white' },
-  /* BODY */
   body      : { maxWidth: '1000px', margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: '24px' },
 
   /* HERO */
@@ -393,5 +497,19 @@ const s = {
   btnVote   : { padding: '5px 10px', background: 'var(--blue-50)', color: 'var(--blue-500)', border: '1px solid var(--blue-100)', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', cursor: 'pointer' },
   btnDel    : { padding: '5px 8px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' },
   ownerTag  : { fontSize: '10px', color: 'var(--gray-300)', fontStyle: 'italic', marginLeft: 'auto' },
-
+  ecueBar         : { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' },
+  ecueBarLabel    : { fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '600', color: 'var(--gray-400)', flexShrink: 0 },
+  ecueFiltres     : { display: 'flex', gap: '6px', flexWrap: 'wrap' },
+  ecueFiltre      : { padding: '5px 12px', border: '1px solid var(--gray-200)', borderRadius: '20px', fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '500', cursor: 'pointer', transition: 'all 0.15s', boxShadow: 'var(--shadow-sm)' },
+  ecueSection     : { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' },
+  ecueSectionDot  : { width: '8px', height: '8px', borderRadius: '50%', background: 'var(--blue-400)', flexShrink: 0 },
+  ecueSectionTitle: { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: '700', color: 'var(--navy-900)', margin: 0 },
+  ecueSectionCount: { fontSize: '11px', color: 'var(--gray-400)', background: 'var(--gray-100)', padding: '2px 8px', borderRadius: '10px' },
+  previewWrap          : { width: '100%', height: '110px', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--gray-100)', position: 'relative', marginBottom: '2px' },
+  previewImg           : { width: '100%', height: '100%', objectFit: 'cover' },
+  previewPdf           : { width: '100%', height: '100%', border: 'none', pointerEvents: 'none' },
+  previewPlaceholder   : { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', background: 'var(--gray-50)' },
+  previewPlaceholderText: { fontSize: '11px', color: 'var(--gray-400)', fontFamily: 'var(--font-display)', fontWeight: '500' },
+  statusBubble         : { position: 'absolute', top: '8px', right: '8px', width: '10px', height: '10px', borderRadius: '50%', border: '2px solid white' },
+  btnDownload : { padding: '5px 10px', background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' },
 };

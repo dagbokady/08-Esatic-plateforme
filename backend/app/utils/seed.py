@@ -1,7 +1,10 @@
 
 from app.database import SessionLocal
 from app.models.academic import Level, Filiere, Class
+from app.models.user import User, UserRole
+from app.utils.auth import hacher_mot_de_passe
 import uuid
+
 
 def seed():
     db = SessionLocal()
@@ -32,7 +35,6 @@ def seed():
     print("✅ Filières insérées")
 
     # ── CLASSES ───────────────────────────────────────
-    # Combinaisons valides selon le cahier des charges
     classes_data = [
         ("Licence 1", "MP2i"),
         ("Licence 1", "SRIT"),
@@ -67,27 +69,44 @@ def seed():
     for niveau_name, filiere_name in classes_data:
         niveau  = db.query(Level).filter_by(name=niveau_name).first()
         filiere = db.query(Filiere).filter_by(name=filiere_name).first()
-
         if not niveau or not filiere:
-            print(f"⚠️  Niveau ou filière introuvable : {niveau_name} / {filiere_name}")
             continue
-
         existe = db.query(Class).filter_by(
-            level_id=niveau.id,
-            filiere_id=filiere.id
+            level_id=niveau.id, filiere_id=filiere.id
         ).first()
-
         if not existe:
             db.add(Class(
-                id         = uuid.uuid4(),
-                level_id   = niveau.id,
-                filiere_id = filiere.id
+                id=uuid.uuid4(),
+                level_id=niveau.id,
+                filiere_id=filiere.id
             ))
-
     db.commit()
     print("✅ Classes insérées")
+
+    # ── ADMIN ─────────────────────────────────────────
+    # Matricule admin : 00-ESATIC0000AD
+    admin_matricule = "22-ESATIC0065AK"
+
+    if not db.query(User).filter_by(matricule=admin_matricule).first():
+        db.add(User(
+            id            = uuid.uuid4(),
+            matricule     = admin_matricule,
+            full_name     = "DAGBO KADY",
+            password_hash = hacher_mot_de_passe("mJ-7x#112"),
+            role          = UserRole.admin,
+            is_active     = True,
+            class_id      = None
+        ))
+        db.commit()
+        print("✅ Admin créé")
+        print("   Matricule : 22-ESATIC0000xx")
+        print("   Password  : mj-.....")
+    else:
+        print("✅ Admin déjà existant")
+
     print("✅ Seed terminé")
     db.close()
+
 
 if __name__ == "__main__":
     seed()
