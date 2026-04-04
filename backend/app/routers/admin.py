@@ -122,3 +122,79 @@ def liste_classes_admin(
             "delegue" : delegue.full_name if delegue else None,
         })
     return sorted(resultat, key=lambda x: x.get("niveau", ""))
+
+# ── DEMANDES EN ATTENTE (toutes classes) ──────────────
+@router.get("/demandes")
+def toutes_demandes(
+    db: Session = Depends(get_db),
+    _ : User    = Depends(get_current_admin)
+):
+    from app.models.user import ApprovalStatus
+    from app.models.academic import Class, Level, Filiere
+
+    demandes = db.query(User).filter(
+        User.approval_status == ApprovalStatus.pending
+    ).all()
+
+    resultat = []
+    for u in demandes:
+        classe  = db.query(Class).filter(Class.id == u.class_id).first()
+        niveau  = db.query(Level).filter(Level.id == classe.level_id).first() if classe else None
+        filiere = db.query(Filiere).filter(Filiere.id == classe.filiere_id).first() if classe else None
+        resultat.append({
+            "id"       : str(u.id),
+            "matricule": u.matricule,
+            "full_name": u.full_name,
+            "classe"   : f"{niveau.name} · {filiere.name}" if niveau and filiere else None,
+            "class_id" : str(u.class_id) if u.class_id else None,
+        })
+    return resultat
+
+
+# ── APPROUVER (admin) ─────────────────────────────────
+@router.post("/users/{user_id}/approuver")
+def approuver_admin(
+    user_id: str,
+    db     : Session = Depends(get_db),
+    _      : User    = Depends(get_current_admin)
+):
+    from app.models.user import ApprovalStatus
+    from app.models.vote import ClassMembership
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+
+    user.approval_status = ApprovalStatus.approved
+
+    if user.class_id:
+        deja = db.query(ClassMembership).filter(
+            ClassMembership.user_id  == user_id,
+            ClassMembership.class_id == user.class_id
+        ).first()
+        if not deja:
+            db.add(ClassMembership(
+                id       = uuid.uuid4(),
+                user_id  = user_id,
+                class_id = user.class_id,
+                is_active= True
+            ))
+
+    db.commit()
+    return {"message": f"{user.full_name} approuvé"}
+
+
+# ── REFUSER (admin) ───────────────────────────────────
+@router.post("/users/{user_id}/refuser")
+def refuser_admin(
+    user_id: str,
+    db     : Session = Depends(get_db),
+    _      : User    = Depends(get_current_admin)
+):
+    from app.models.user import ApprovalStatus
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "Utilisateur introuvable")
+    user.approval_status = ApprovalStatus.rejected
+    db.commit()
+    return {"message": f"Inscription de {user.full_name} refusée"}

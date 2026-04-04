@@ -27,24 +27,21 @@ export default function RegisterPage() {
     e.preventDefault();
     setErreur('');
 
-    // Validation matricule
     if (!validerMatricule(form.matricule)) {
-      setErreur('Format invalide. Exemple : 22-ESATIC0069AK (2 chiffres - ESATIC - numéros - 2 lettres majuscules)');
+      setErreur('Format invalide. Exemple : 22-ESATIC0069AK');
       return;
     }
 
     setLoading(true);
     try {
       await register(form);
-      setSucces('Compte créé ! Redirection...');
-      setTimeout(() => navigate('/login'), 1500);
+      navigate('/en-attente');   // ← redirige vers la page d'attente
     } catch (err) {
       setErreur(err.response?.data?.detail || "Erreur lors de l'inscription");
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div style={s.root}>
       <div style={s.bgBlob} />

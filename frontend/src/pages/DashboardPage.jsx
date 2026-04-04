@@ -116,6 +116,7 @@ export default function DashboardPage() {
   const [fichiers, setFichiers] = useState([]);
   const [loading,  setLoading]  = useState(true);
   // Ajoute ces états en haut du composant
+  const [showTutorial, setShowTutorial] = useState(true);
   const [ecues,       setEcues]       = useState([]);
   const [ecueFiltre,  setEcueFiltre]  = useState('tous');
   const [filtre,   setFiltre]   = useState('tous');
@@ -295,6 +296,51 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* FILTRES PAR ECUE */}
+        {(user?.role==='delegate' && showTutorial ) && (
+          <div style={s.tutorial}>
+            <div style={s.tutorialHeader}>
+              <span style={s.tutorialTitle}>👋 Guide du délégué</span>
+              <button style={s.tutorialClose} onClick={() => setShowTutorial(false)}>✕</button>
+            </div>
+            <div style={s.tutorialSteps}>
+              {[
+                {
+                  num : '1',
+                  icon: '🔗',
+                  title: 'Génère un lien d\'invitation',
+                  desc : 'Va dans "Lien d\'invitation" et génère un lien unique à partager avec ta promotion.'
+                },
+                {
+                  num : '2',
+                  icon: '✅',
+                  title: 'Approuve les inscriptions',
+                  desc : 'Quand un étudiant s\'inscrit avec ta classe, il apparaît dans "Demandes en attente". Approuve ou refuse.'
+                },
+                {
+                  num : '3',
+                  icon: '📚',
+                  title: 'Configure les ECUE',
+                  desc : 'Ajoute les matières de ta classe pour que les étudiants puissent classer leurs fichiers.'
+                },
+                {
+                  num : '4',
+                  icon: '📊',
+                  title: 'Suis les votes',
+                  desc : 'Les fichiers soumis par d\'autres classes ont besoin de 70% de votes pour être validés.'
+                },
+              ].map((step) => (
+                <div key={step.num} style={s.tutorialStep}>
+                  <div style={s.tutorialStepIcon}>{step.icon}</div>
+                  <div>
+                    <p style={s.tutorialStepTitle}>{step.title}</p>
+                    <p style={s.tutorialStepDesc}>{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* FILTRES PAR ECUE */}
         {ecues.length > 0 && (
           <div style={s.ecueBar}>
@@ -497,6 +543,15 @@ const s = {
   btnVote   : { padding: '5px 10px', background: 'var(--blue-50)', color: 'var(--blue-500)', border: '1px solid var(--blue-100)', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', cursor: 'pointer' },
   btnDel    : { padding: '5px 8px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' },
   ownerTag  : { fontSize: '10px', color: 'var(--gray-300)', fontStyle: 'italic', marginLeft: 'auto' },
+  tutorial          : { background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)', border: '1px solid var(--blue-100)', borderRadius: 'var(--radius-xl)', padding: '24px' },
+  tutorialHeader    : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  tutorialTitle     : { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: '700', color: 'var(--navy-900)' },
+  tutorialClose     : { background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer', fontSize: '14px', padding: '4px' },
+  tutorialSteps     : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' },
+  tutorialStep      : { display: 'flex', gap: '10px', alignItems: 'flex-start' },
+  tutorialStepIcon  : { fontSize: '20px', flexShrink: 0, marginTop: '2px' },
+  tutorialStepTitle : { fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '600', color: 'var(--navy-900)', margin: '0 0 3px' },
+  tutorialStepDesc  : { fontSize: '12px', color: 'var(--gray-500)', margin: 0, lineHeight: 1.5 },
   ecueBar         : { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' },
   ecueBarLabel    : { fontSize: '12px', fontFamily: 'var(--font-display)', fontWeight: '600', color: 'var(--gray-400)', flexShrink: 0 },
   ecueFiltres     : { display: 'flex', gap: '6px', flexWrap: 'wrap' },

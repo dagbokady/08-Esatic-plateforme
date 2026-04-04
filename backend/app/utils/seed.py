@@ -94,6 +94,7 @@ def seed():
             full_name     = "DAGBO KADY",
             password_hash = hacher_mot_de_passe("mJ-7x#112"),
             role          = UserRole.admin,
+            approval_status= "approved",
             is_active     = True,
             class_id      = None
         ))

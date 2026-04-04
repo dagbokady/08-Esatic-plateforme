@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getMaClasse, creerInvitation } from '../services/classService';
 import { getEcuesClasse, creerEcue, supprimerEcue } from '../services/ecueService';
+import {
+  getMaClasse, creerInvitation,
+  getDemandesClasse, approuverEtudiant, refuserEtudiant
+} from '../services/classService';
 
 export default function DelegatePage() {
   const { user }  = useAuth();
@@ -17,19 +20,47 @@ export default function DelegatePage() {
   const [loadingEcue,   setLoadingEcue]   = useState(false);
   const [copied,        setCopied]        = useState(false);
   const [erreurEcue,    setErreurEcue]    = useState('');
+  const [showTutorial, setShowTutorial] = useState(true);
+  const [demandes,     setDemandes]     = useState([]);
 
+// Dans charger()
   const charger = async () => {
     try {
       const res = await getMaClasse();
       setClasse(res.data);
-      const ecuesRes = await getEcuesClasse(res.data.id);
+      const [ecuesRes, demandesRes] = await Promise.all([
+        getEcuesClasse(res.data.id),
+        getDemandesClasse(res.data.id),
+      ]);
       setEcues(ecuesRes.data);
+      setDemandes(demandesRes.data);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleApprouver = async (userId, nom) => {
+    try {
+      await approuverEtudiant(classe.id, userId);
+      setDemandes(demandes.filter(d => d.id !== userId));
+      alert(`${nom} a été approuvé !`);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
+  const handleRefuser = async (userId, nom) => {
+    if (!confirm(`Refuser l'inscription de ${nom} ?`)) return;
+    try {
+      await refuserEtudiant(classe.id, userId);
+      setDemandes(demandes.filter(d => d.id !== userId));
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erreur');
+    }
+  };
+
 
   useEffect(() => { charger(); }, []);
 
@@ -126,7 +157,94 @@ export default function DelegatePage() {
             <span style={s.delegateText}>Délégué</span>
           </div>
         </div>
+        {/* TUTORIEL — visible seulement si pas encore fermé */}
+        {showTutorial && (
+          <div style={s.tutorial}>
+            <div style={s.tutorialHeader}>
+              <span style={s.tutorialTitle}>👋 Guide du délégué</span>
+              <button style={s.tutorialClose} onClick={() => setShowTutorial(false)}>✕</button>
+            </div>
+            <div style={s.tutorialSteps}>
+              {[
+                {
+                  num : '1',
+                  icon: '🔗',
+                  title: 'Génère un lien d\'invitation',
+                  desc : 'Va dans "Lien d\'invitation" et génère un lien unique à partager avec ta promotion.'
+                },
+                {
+                  num : '2',
+                  icon: '✅',
+                  title: 'Approuve les inscriptions',
+                  desc : 'Quand un étudiant s\'inscrit avec ta classe, il apparaît dans "Demandes en attente". Approuve ou refuse.'
+                },
+                {
+                  num : '3',
+                  icon: '📚',
+                  title: 'Configure les ECUE',
+                  desc : 'Ajoute les matières de ta classe pour que les étudiants puissent classer leurs fichiers.'
+                },
+                {
+                  num : '4',
+                  icon: '📊',
+                  title: 'Suis les votes',
+                  desc : 'Les fichiers soumis par d\'autres classes ont besoin de 70% de votes pour être validés.'
+                },
+              ].map((step) => (
+                <div key={step.num} style={s.tutorialStep}>
+                  <div style={s.tutorialStepIcon}>{step.icon}</div>
+                  <div>
+                    <p style={s.tutorialStepTitle}>{step.title}</p>
+                    <p style={s.tutorialStepDesc}>{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
+        {/* DEMANDES EN ATTENTE */}
+        {demandes.length > 0 && (
+          <div style={s.card}>
+            <div style={s.cardHeader}>
+              <div style={{ ...s.cardIcon, background: '#FEF3C7' }}>🔔</div>
+              <div>
+                <h2 style={s.cardTitle}>
+                  Demandes en attente
+                  <span style={s.demandesBadge}>{demandes.length}</span>
+                </h2>
+                <p style={s.cardSub}>Ces étudiants attendent ton approbation</p>
+              </div>
+            </div>
+            <div style={s.demandesList}>
+              {demandes.map((d) => (
+                <div key={d.id} style={s.demandeItem}>
+                  <div style={s.demandeAvatar}>
+                    {d.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <div style={s.demandeInfo}>
+                    <p style={s.demandeName}>{d.full_name}</p>
+                    <p style={s.demandeMatricule}>{d.matricule}</p>
+                  </div>
+                  <div style={s.demandeActions}>
+                    <button
+                      style={s.btnApprouver}
+                      onClick={() => handleApprouver(d.id, d.full_name)}
+                    >
+                      ✓ Approuver
+                    </button>
+                    <button
+                      style={s.btnRefuser}
+                      onClick={() => handleRefuser(d.id, d.full_name)}
+                    >
+                      ✕ Refuser
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={s.grid}>
 
           {/* ── INVITATIONS ── */}
@@ -303,4 +421,23 @@ const s = {
   btnPrimary  : { padding: '10px 20px', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-600))', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '600', fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.25)', transition: 'opacity 0.15s' },
   btnSecondary: { padding: '8px 16px', background: 'var(--gray-100)', color: 'var(--gray-600)', border: '1px solid var(--gray-200)', borderRadius: 'var(--radius-md)', fontFamily: 'var(--font-display)', fontWeight: '500', fontSize: '13px', cursor: 'pointer' },
   btnDel      : { padding: '4px 8px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', borderRadius: 'var(--radius-sm)', fontSize: '11px', cursor: 'pointer' },
+  tutorial          : { background: 'linear-gradient(135deg, #EFF6FF, #F0F9FF)', border: '1px solid var(--blue-100)', borderRadius: 'var(--radius-xl)', padding: '24px' },
+  tutorialHeader    : { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  tutorialTitle     : { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: '700', color: 'var(--navy-900)' },
+  tutorialClose     : { background: 'none', border: 'none', color: 'var(--gray-400)', cursor: 'pointer', fontSize: '14px', padding: '4px' },
+  tutorialSteps     : { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' },
+  tutorialStep      : { display: 'flex', gap: '10px', alignItems: 'flex-start' },
+  tutorialStepIcon  : { fontSize: '20px', flexShrink: 0, marginTop: '2px' },
+  tutorialStepTitle : { fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '600', color: 'var(--navy-900)', margin: '0 0 3px' },
+  tutorialStepDesc  : { fontSize: '12px', color: 'var(--gray-500)', margin: 0, lineHeight: 1.5 },
+  demandesBadge     : { marginLeft: '8px', padding: '1px 7px', borderRadius: '10px', background: '#FEF3C7', color: '#D97706', fontSize: '12px', fontWeight: '700' },
+  demandesList      : { display: 'flex', flexDirection: 'column', gap: '8px' },
+  demandeItem       : { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--gray-200)' },
+  demandeAvatar     : { width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue-500), var(--navy-700))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: '700', fontSize: '12px', color: '#fff', flexShrink: 0 },
+  demandeInfo       : { flex: 1 },
+  demandeName       : { fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: '600', color: 'var(--gray-800)', margin: 0 },
+  demandeMatricule  : { fontSize: '11px', color: 'var(--gray-400)', margin: 0, fontFamily: 'monospace' },
+  demandeActions    : { display: 'flex', gap: '6px' },
+  btnApprouver      : { padding: '5px 10px', background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', cursor: 'pointer' },
+  btnRefuser        : { padding: '5px 10px', background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3', borderRadius: 'var(--radius-sm)', fontSize: '11px', fontFamily: 'var(--font-display)', fontWeight: '600', cursor: 'pointer' },
 };

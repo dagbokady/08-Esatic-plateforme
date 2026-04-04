@@ -12,21 +12,26 @@ class UserRole(str, enum.Enum):
     delegate = "delegate"
     admin    = "admin"
 
+class ApprovalStatus(str, enum.Enum):
+    pending  = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
 class User(Base):
     __tablename__ = "users"
 
-    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    matricule     = Column(String, nullable=False, unique=True)
-    full_name     = Column(String, nullable=False)
-    password_hash = Column(String, nullable=False)
-    role          = Column(Enum(UserRole), default=UserRole.student, nullable=False)
-    is_active     = Column(Boolean, default=True, nullable=False)
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    matricule       = Column(String, nullable=False, unique=True)
+    full_name       = Column(String, nullable=False)
+    password_hash   = Column(String, nullable=False)
+    role            = Column(Enum(UserRole), default=UserRole.student, nullable=False)
+    is_active       = Column(Boolean, default=True, nullable=False)
+    approval_status = Column(Enum(ApprovalStatus), default=ApprovalStatus.pending, nullable=False)
+    class_id        = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True)
 
-    class_id = Column(UUID(as_uuid=True), ForeignKey("classes.id"), nullable=True)
-
-
+    # Relations
     class_         = relationship("Class", foreign_keys=[class_id])
     memberships    = relationship("ClassMembership", back_populates="user")
     uploaded_files = relationship("File", back_populates="uploader")
     votes          = relationship("Vote", back_populates="voter")
-    invitations = relationship("Invitation", back_populates="created_by_user")
+    invitations    = relationship("Invitation", back_populates="created_by_user")

@@ -7,6 +7,8 @@ import DelegatePage   from './pages/DelegatePage';
 import RejoindrePage  from './pages/RejoindrePage';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import AdminPage from './pages/AdminPage';
+import PendingPage from './pages/PendingPage';
+
 
 // Dans les routes :
 
@@ -28,6 +30,7 @@ export default function App() {
       <Route path="/delegue" element={
         <ProtectedRoute><DelegatePage /></ProtectedRoute>
       } />
+      <Route path="/en-attente" element={<PendingPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

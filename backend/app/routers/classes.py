@@ -172,3 +172,85 @@ def quitter_classe(
     db.commit()
 
     return {"message": "Tu as quitté la classe"}
+
+# ── DEMANDES EN ATTENTE (délégué) ─────────────────────
+@router.get("/{class_id}/demandes")
+def demandes_en_attente(
+    class_id    : str,
+    current_user: User    = Depends(get_current_delegate),
+    db          : Session = Depends(get_db)
+):
+    if str(current_user.class_id) != class_id:
+        raise HTTPException(403, "Tu ne gères que ta propre classe")
+
+    from app.models.user import ApprovalStatus
+    demandes = db.query(User).filter(
+        User.class_id        == class_id,
+        User.approval_status == ApprovalStatus.pending
+    ).all()
+
+    return [
+        {
+            "id"       : str(u.id),
+            "matricule": u.matricule,
+            "full_name": u.full_name,
+        }
+        for u in demandes
+    ]
+
+
+# ── APPROUVER UN ÉTUDIANT (délégué) ───────────────────
+@router.post("/{class_id}/approuver/{user_id}")
+def approuver_etudiant(
+    class_id    : str,
+    user_id     : str,
+    current_user: User    = Depends(get_current_delegate),
+    db          : Session = Depends(get_db)
+):
+    if str(current_user.class_id) != class_id:
+        raise HTTPException(403, "Tu ne gères que ta propre classe")
+
+    from app.models.user import ApprovalStatus
+    etudiant = db.query(User).filter(User.id == user_id).first()
+    if not etudiant:
+        raise HTTPException(404, "Étudiant introuvable")
+
+    etudiant.approval_status = ApprovalStatus.approved
+
+    # Créer le membership automatiquement
+    from app.models.vote import ClassMembership
+    deja = db.query(ClassMembership).filter(
+        ClassMembership.user_id  == user_id,
+        ClassMembership.class_id == class_id
+    ).first()
+    if not deja:
+        db.add(ClassMembership(
+            id       = uuid.uuid4(),
+            user_id  = user_id,
+            class_id = class_id,
+            is_active= True
+        ))
+
+    db.commit()
+    return {"message": f"{etudiant.full_name} a été approuvé"}
+
+
+# ── REFUSER UN ÉTUDIANT (délégué) ─────────────────────
+@router.post("/{class_id}/refuser/{user_id}")
+def refuser_etudiant(
+    class_id    : str,
+    user_id     : str,
+    current_user: User    = Depends(get_current_delegate),
+    db          : Session = Depends(get_db)
+):
+    if str(current_user.class_id) != class_id:
+        raise HTTPException(403, "Tu ne gères que ta propre classe")
+
+    from app.models.user import ApprovalStatus
+    etudiant = db.query(User).filter(User.id == user_id).first()
+    if not etudiant:
+        raise HTTPException(404, "Étudiant introuvable")
+
+    etudiant.approval_status = ApprovalStatus.rejected
+    db.commit()
+    return {"message": f"Inscription de {etudiant.full_name} refusée"}

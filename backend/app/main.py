@@ -22,7 +22,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:8000",
-        "https://esaticshare-frontend.vercel.app",
+        "https://esaticshare.vercel.app",
         "https://08-esatic-plateforme.vercel.app",
         FRONTEND_URL,
     ],

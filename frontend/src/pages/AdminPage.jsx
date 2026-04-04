@@ -2,11 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  getStats, getUsers, getClassesAdmin,
-  nommerDelegue, revoquerDelegue, desactiverUser
-} from '../services/adminService';
-
+import { getStats, getUsers, getClassesAdmin, getDemandes, nommerDelegue, revoquerDelegue, desactiverUser, approuverAdmin, refuserAdmin } from '../services/adminService';
 export default function AdminPage() {
   const { user, deconnexion } = useAuth();
   const navigate = useNavigate();
@@ -16,6 +12,7 @@ export default function AdminPage() {
   const [users,    setUsers]    = useState([]);
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
+  const [demandes, setDemandes] = useState([]);
   const [search,   setSearch]   = useState('');
 
   useEffect(() => {
@@ -24,9 +21,13 @@ export default function AdminPage() {
 
   const charger = async () => {
     try {
-      const [s, u, c] = await Promise.all([getStats(), getUsers(), getClassesAdmin()]);
+      const [s, u, c, d] = await Promise.all([
+        getStats(), getUsers(), getClassesAdmin(), getDemandes()
+      ]);
       setStats(s.data);
       setUsers(u.data);
+      setClasses(c.data);
+      setDemandes(d.data);
       setClasses(c.data);
     } catch (err) {
       console.error(err);
@@ -135,6 +136,7 @@ export default function AdminPage() {
           {[
             { key: 'users',   label: `Utilisateurs (${users.length})` },
             { key: 'classes', label: `Classes (${classes.length})` },
+            { key: 'demandes', label: `Demandes (${demandes.length})` },
           ].map((o) => (
             <button
               key={o.key}
@@ -251,6 +253,61 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {onglet === 'demandes' && (
+          <div style={s.section}>
+            {demandes.length === 0 ? (
+              <div style={s.empty}>
+                <span style={{ fontSize: '32px' }}>✅</span>
+                <p style={{ color: 'var(--gray-400)', fontSize: '14px' }}>
+                  Aucune demande en attente
+                </p>
+              </div>
+            ) : (
+              <div style={s.table}>
+                <div style={s.tableHeader}>
+                  <span style={{ flex: 2 }}>Étudiant</span>
+                  <span style={{ flex: 1 }}>Matricule</span>
+                  <span style={{ flex: 1 }}>Classe</span>
+                  <span style={{ flex: 1, textAlign: 'right' }}>Actions</span>
+                </div>
+                {demandes.map((d) => (
+                  <div key={d.id} style={s.tableRow}>
+            <span style={{ flex: 2, fontWeight: '500', color: 'var(--gray-800)' }}>
+              {d.full_name}
+            </span>
+                    <span style={{ flex: 1, fontSize: '12px', color: 'var(--gray-400)', fontFamily: 'monospace' }}>
+              {d.matricule}
+            </span>
+                    <span style={{ flex: 1, fontSize: '12px', color: 'var(--gray-500)' }}>
+              {d.classe || '—'}
+            </span>
+                    <div style={{ flex: 1, display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <button
+                        style={{ ...s.btnAction, background: 'var(--green-50)', color: 'var(--green-600)', border: '1px solid #BBF7D0' }}
+                        onClick={async () => {
+                          await approuverAdmin(d.id);
+                          charger();
+                        }}
+                      >
+                        ✓ Approuver
+                      </button>
+                      <button
+                        style={{ ...s.btnAction, background: 'var(--red-50)', color: 'var(--red-600)', border: '1px solid #FECDD3' }}
+                        onClick={async () => {
+                          if (!confirm(`Refuser ${d.full_name} ?`)) return;
+                          await refuserAdmin(d.id);
+                          charger();
+                        }}
+                      >
+                        ✕ Refuser
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
